@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/anthropics/anthropic-quickstarts/main/README.md\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/anthropics/anthropic-quickstarts/main/computer-use-demo/README.md\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/corbt/agent.exe/main/README.md\")",
+      "Bash(curl -sL -o /tmp/cua.md -w \"HTTP %{http_code}\\\\n\" \"https://raw.githubusercontent.com/trycua/cua/main/README.md\")",
+      "Read(//tmp/**)",
+      "Bash(curl -sL -o /tmp/ufo.md -w \"HTTP %{http_code}\\\\n\" \"https://raw.githubusercontent.com/microsoft/UFO/main/README.md\")",
+      "Bash(curl -sL https://raw.githubusercontent.com/trycua/cua/main/README.md)",
+      "Bash(curl -sL https://raw.githubusercontent.com/corbt/agent.exe/main/README.md)"
+    ]
+  }
+}

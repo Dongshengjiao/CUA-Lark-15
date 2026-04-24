@@ -1,0 +1,38 @@
+[project]
+name = "cua-lark"
+version = "0.1.0"
+description = "5-layer CUA testing framework for Lark Desktop (Feishu AI Campus Challenge, CUA-Lark track, team 15)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "pyautogui>=0.9.54",
+    "mss>=9.0.1",
+    "pillow>=10.0.0",
+    "pywinauto>=0.6.8 ; sys_platform == 'win32'",
+    "python-dotenv>=1.0.1",
+    "rich>=13.7.0",
+    "pydantic>=2.8.0",
+]
+
+[project.optional-dependencies]
+ocr = [
+    "pytesseract>=0.3.10",
+]
+dev = [
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+cua-lark = "main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

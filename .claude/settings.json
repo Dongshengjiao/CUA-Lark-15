@@ -1,0 +1,9 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://ad-litellm.neolix.cn",
+    "ANTHROPIC_API_KEY": "sk-M_R9ENpXjZ6OI-tfn55knA", 
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "azure_ai/claude-opus-4-7",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  },
+  "model": "azure_ai/claude-opus-4-7"
+}
