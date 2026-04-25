@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# uv / venv
+.venv/
+venv/
+env/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# secrets / env
+.env
+.env.local
+*.key
+ark_api_key*
+
+# logs / artifacts
+logs/
+*.log
+runs/
+artifacts/
+screenshots/
+trace_*.json
+report_*.html
+
+# demo 视频源材料(只把成品 mp4 入库)
+demo/raw/
+
+# Cursor
+.cursor/projects/
+agent-tools/
+
+# bench 临时数据
+bench/output/
+bench/cache/
+
+# 外部参考仓库（仅本地阅读，不入库）
+references/
