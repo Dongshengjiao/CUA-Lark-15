@@ -12,8 +12,9 @@
     "timeout": 45
   },
   "actor_llm": {
+    "_comment": "actor 只输出 JSON action, 不需要 grounding, 用 flash 快 3-5 倍 (4-27 性能优化)",
     "provider": "turix",
-    "model_name": "qwen3-vl-plus",
+    "model_name": "qwen3-vl-flash",
     "api_key": "",
     "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "timeout": 45

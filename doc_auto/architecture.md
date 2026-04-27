@@ -133,3 +133,4 @@ agent/reporter/metrics.py (RunMetrics) → Markdown 报告 + Streamlit Dashboard
 | 2026-04-27 19:53 | **本地 .env 实体 + larkvision 软链**: 一份 .env, 主仓和 larkvision 双入口 (cwd) 都能 dotenv 加载, 不用每次 export |
 | 2026-04-27 20:24 | **larkvision/pyproject.toml 工程化补丁**: 让 `cd larkvision && uv run` 自动用 larkvision/.venv (Python 3.12, 含 pynput/langchain), 修复 ModuleNotFoundError; 首次需 `uv sync && uv pip install -r requirements.txt` |
 | 2026-04-27 20:30 | **examples/configs 软链补丁**: `examples/configs -> ../configs`, 修复 main.py L294 把相对 config 路径强制 join 到 `__file__.parent` 导致 FileNotFoundError; .gitignore 改 globstar 兼容副作用 |
+| 2026-04-27 20:48 | **Actor 切 qwen3-vl-flash**: 3 份 configs (im_send/search/at_mention) 的 actor_llm 从 plus 切 flash, 解决 DashScope 偶发慢导致单步 actor 51s 问题; Brain 保持 plus 不动 |
