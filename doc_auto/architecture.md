@@ -2,7 +2,7 @@
 
 > 按 workspace rule 维护。每次代码变更，需同步更新对应模块说明并追加修改时间戳。
 
-最近更新：2026-04-25 19:50（M1 脚手架落盘）
+最近更新：2026-04-26 13:25（双轨主模型：Qwen + 豆包）
 
 ## 1. 模块总览
 
@@ -11,7 +11,8 @@ agent/
 ├── llm/                LLM 抽象层（Provider 解耦 + 路由）
 │   ├── base.py         LLMClient ABC + LLMMessage + LLMResponse + ReasoningLevel
 │   ├── doubao.py       豆包 Provider（火山方舟 OpenAI 兼容协议）
-│   └── router.py       LLMRouter：按 TaskType 选 reasoning 档；fallback 链路
+│   ├── qwen.py         Qwen Provider（阿里云 DashScope OpenAI 兼容协议）
+│   └── router.py       LLMRouter：build_default_client(provider) 工厂 + 跨 Provider fallback
 ├── perception/         视觉感知层
 │   ├── screenshot.py   ScreenCapture：mss 截屏（全屏 / 区域）
 │   └── grounder.py     VisionGrounder：截图 + 意图 → (x, y) 结构化输出
@@ -44,6 +45,16 @@ agent/
 - 内置 tenacity 重试（3 次指数退避）
 - 多模态：`image_paths` 自动 base64 编码为 data URL
 
+### 2.2b `agent.llm.qwen.QwenClient`
+
+- 通过 OpenAI 兼容协议调用 `https://dashscope.aliyuncs.com/compatible-mode/v1`（中国北京）
+- 支持的模型：qwen3-vl-plus / qwen3-vl-flash / qwen-vl-max / qwen-vl-plus / qwen2.5-vl-{72b,32b,7b}-instruct
+- `ReasoningLevel.MINIMAL` → `enable_thinking=False`（直接答）
+- 其他档位 → `enable_thinking=True`（开思考）
+- 主推 **qwen3-vl-plus**：官方明确 GUI Agent 专项训练，DeepStack 多级 ViT 像素级理解
+- env：`DASHSCOPE_API_KEY` 或 `QWEN_API_KEY`
+- 复用 doubao 的 `_to_openai_messages` 多模态消息适配
+
 ### 2.3 `agent.llm.router.LLMRouter`
 
 | 任务类型 (TaskType) | 默认 reasoning |
@@ -54,8 +65,9 @@ agent/
 | `CROSS_PRODUCT` | medium |
 | `SELF_HEAL` | medium |
 
-- primary 失败自动切 fallback（默认豆包 1.6）
+- primary 失败自动切 fallback（跨 Provider：Qwen ↔ 豆包，按可用 Key 选）
 - `summary()` 输出 by_task / by_reasoning / 总延迟 / token / fallback_count
+- 工厂函数 `build_default_client(provider)`：env 控制（LLM_PROVIDER=qwen|doubao），缺省按可用 Key 自动选
 
 ### 2.4 `agent.perception`
 
@@ -93,8 +105,10 @@ Mouse.click(x, y)  / Keyboard.type_text(...)
 | `tests/test_llm_base.py` | ReasoningLevel 值；LLMMessage 多模态；OpenAI 协议转换 |
 | `tests/test_router.py` | 任务→reasoning 路由；primary 失败 fallback；统计正确 |
 | `tests/test_grounder.py` | 纯/代码块/散文中提取 JSON；解析有效/缺失/异常路径 |
+| `tests/test_qwen.py` | QwenClient 构造、Key 多源回退、reasoning 映射、多模态消息 |
+| `tests/test_router_provider.py` | LLM_PROVIDER 显式选；按 Key 自动选；无 Key 报错 |
 
-当前：18/18 全过。
+当前：32/32 全过。
 
 ## 5. 待补模块（按里程碑）
 
@@ -112,3 +126,4 @@ Mouse.click(x, y)  / Keyboard.type_text(...)
 |---|---|
 | 2026-04-25 19:50 | M1 脚手架落盘：LLM 抽象 + 视觉感知 + 执行 + 18 单测 + Demo 脚本 |
 | 2026-04-25 20:55 | 调研 TuriX-CUA（references/turix-cua/）；产出 docs/turix_cua_review.md；规划 6 处可落地小改动（归一化坐标 / Action Pydantic / 双截图 / 急停热键 / 结构化校验 / Skills 目录） |
+| 2026-04-26 13:25 | 双轨主模型落盘：QwenClient（qwen3-vl-plus 主，GUI Agent 专项）；LLMRouter 跨 Provider fallback；.env.example 升级；plan v0.3 增量补丁；新增 11 单测，32/32 全过 |

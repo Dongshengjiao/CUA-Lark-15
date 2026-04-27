@@ -2,7 +2,8 @@
 
 from agent.llm.base import LLMClient, LLMMessage, LLMResponse, ReasoningLevel
 from agent.llm.doubao import DoubaoClient
-from agent.llm.router import LLMRouter, TaskType
+from agent.llm.qwen import QwenClient
+from agent.llm.router import LLMRouter, TaskType, build_default_client
 
 __all__ = [
     "DoubaoClient",
@@ -10,6 +11,8 @@ __all__ = [
     "LLMMessage",
     "LLMResponse",
     "LLMRouter",
+    "QwenClient",
     "ReasoningLevel",
     "TaskType",
+    "build_default_client",
 ]
