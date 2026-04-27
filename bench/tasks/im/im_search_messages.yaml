@@ -1,0 +1,41 @@
+# IM 子产品 - 搜索历史消息
+# 复用 4-26 验证过的"AppleScript 激活 + Cmd+K 搜索"套路, 仅 task prompt 微调
+
+id: im_search_messages_by_keyword
+domain: im
+category: basic
+difficulty: easy
+
+description: |
+  在飞书 IM 中通过全局搜索 (Cmd+K) 查找包含指定关键词的历史消息, 验证搜索结果列表中至少出现一条匹配消息.
+
+# task prompt 模板, runner 渲染时填充 {keyword}
+task: |
+  Search for the keyword '{keyword}' in Lark (飞书) message history. Follow these steps in order, and execute exactly one action per step.
+  Step 1: Use the run_apple_script action with script='tell application "Lark" to activate' to force Lark to the foreground.
+  Step 2: Use multi_Hotkey action with key1='cmd' and key2='k' to open the Lark global search dialog.
+  Step 3: Use input_text action with text='{keyword}' to type the search keyword into the search box.
+  Step 4: Look at the screen carefully. The Lark search results should now display matching items grouped by category (contacts, groups, messages). The task is complete when the search results contain at least one message item that includes the keyword '{keyword}'. If you can clearly see a message result containing '{keyword}', mark the task as done.
+
+parameters:
+  keyword: hello       # 必须是历史消息里出现过的字; 缺省值假设 im_send_text 已造过 'hello'
+
+verifier:
+  l1_expect_change: true       # Cmd+K 弹出搜索浮窗, 屏幕必变
+  l2_expect_keywords:
+    - "{keyword}"
+  l2_forbid_keywords:
+    - "搜索失败"
+    - "无结果"
+    - "加载失败"
+  l3_question: |
+    Did the search results contain at least one message matching '{keyword}'?
+
+oracle:
+  command: lark-cli im +messages-search --keyword "{keyword}" --limit 1
+  expect_min_results: 1
+
+constraints:
+  max_steps: 8
+  max_actions_per_step: 1
+  timeout_seconds: 90

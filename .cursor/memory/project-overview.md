@@ -46,7 +46,9 @@ API key 通过进程 env `OPENAI_API_KEY` 注入，**不落 JSON**. 所有 LLM �
 
 ## Resolved Patterns
 
+- **版本号是产品决策，不是工程清理副作用**：重构/删除/加模块/重写架构等技术变更默认不动 `pyproject.toml` 的 `version` 和 `__version__`；只有用户明确说"升版本到 X"才改 — 学到 2026-04-27 [[2026-04-27#correction-不要在用户没明确指示时擅自升语义化版本号]]
 - **vendor 子目录 + 外挂式补强 = 二开开源项目最优工程结构**：物理复制 + 锁 commit + UPSTREAM.md + 主仓只装补强依赖 + ruff exclude 上游 — 学到 2026-04-27 [[2026-04-27#pattern-vendor-外挂式补强]]
+- **多 venv 项目共享 .env**：仓库根放实体 `.env` + 子目录 `.env -> ../.env` 软链；`.gitignore` 的 `.env` pattern 递归生效自动忽略子目录；Python 进程靠 dotenv 自动加载不用 export — 学到 2026-04-27 [[2026-04-27#solution-一份-env-实体-仓库根-larkvision-双入口可见-软链方案]]
 - **CUA prompt 风格**：通用 VLM 必须用 imperative step-by-step + 显式 action 名 + 显式参数；不能用 "open Calculator" 这种意图描述 — 学到 2026-04-26 [[2026-04-26#pattern-imperative-step-by-step-prompts-for-generic-vlm-cua-agents]]
 - **App 激活靠 AppleScript 不靠 open_app**：`run_apple_script` 跑 `tell application X to activate` 比 `open_app` 抢焦点更可靠 — 学到 2026-04-26 [[2026-04-26#fix-use-run-apple-script-to-forcefully-activate-lark-replace-hotkeys-with-input-text]]
 - **能用 AppleScript 干的事不用 GUI 戳**：CUA 的最优组合 = AppleScript 处理"启动/激活/Safari 控制/系统调用"，纯 GUI 只用于真做不到的事 — 学到 2026-04-26

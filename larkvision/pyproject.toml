@@ -1,0 +1,30 @@
+# =============================================================================
+# larkvision/ 独立 uv 项目 (vendored TuriX-CUA + 飞书定制)
+#
+# 这是 CUA-Lark-15 主仓为 vendored TuriX-CUA 添加的工程化补丁,
+# 不属于 TuriX 上游代码. 上游用 requirements.txt 管依赖,
+# 本文件让 uv 把 larkvision/ 识别为独立项目, 自动建 .venv 并 sync.
+#
+# 依赖真相源仍是 requirements.txt; pyproject.toml 仅作为 uv 的项目入口.
+#
+# 用法:
+#   cd larkvision
+#   uv sync                           # 建空 .venv (Python 3.12)
+#   uv pip install -r requirements.txt  # 装 TuriX 全套依赖
+#   uv run python examples/main.py --config configs/lark_im_send.json
+# =============================================================================
+
+[project]
+name = "larkvision-tester-runtime"
+version = "0.0.3"
+description = "vendored TuriX-CUA + 飞书定制 (LarkVision-Tester 主进程)"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+
+# 依赖故意留空 —— 真实依赖在 requirements.txt
+# 同步规则: 上游 TuriX 改了 requirements.txt 后, 跑 `uv pip install -r requirements.txt`
+dependencies = []
+
+[tool.uv]
+# 让 uv 不把这个当成"待发布的 wheel"
+package = false

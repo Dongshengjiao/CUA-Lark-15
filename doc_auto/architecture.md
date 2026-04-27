@@ -2,7 +2,7 @@
 
 > 按 workspace rule 维护。每次代码变更需同步更新对应模块说明并追加修改时间戳。
 
-最近更新：2026-04-27 18:08（v0.3 路线变更落盘）
+最近更新：2026-04-27 19:42（IM 子产品扩展到 3 用例: send_text + search + at_mention, M2 标杆达标）
 
 ## 1. 架构总览 (v0.3)
 
@@ -37,7 +37,10 @@ CUA-Lark-15/
 │
 ├── bench/                           # 【自研】FeishuCUA-Bench
 │   ├── tasks/                       # YAML 用例
-│   │   └── im/im_send_text.yaml     # 复刻 4-26 跑通的发消息
+│   │   └── im/                      # M2 标杆 (≥ 3 E2E 用例) 已达标
+│   │       ├── im_send_text.yaml         # 4-26 跑通: 给联系人发文本
+│   │       ├── im_search_messages.yaml   # 4-27 创建: 全局搜索消息
+│   │       └── im_at_mention.yaml        # 4-27 创建: 群内 @ 提及发消息
 │   ├── runner.py                    # M4: 调 TuriX agent + verifier
 │   └── oracle.py                    # M4: lark-cli 后端校准
 └── tests/                           # 自研模块单测 (M2 起补)
@@ -126,3 +129,7 @@ agent/reporter/metrics.py (RunMetrics) → Markdown 报告 + Streamlit Dashboard
 | 2026-04-26 19:54 | TuriX + qwen3-vl-plus 飞书发消息打通 (3 步 65s) |
 | 2026-04-26 commit b76e878 | 双 Provider 路由 + plan v0.3 (后被回滚) |
 | 2026-04-27 18:08 | **v0.3 路线变更**: vendor TuriX → `larkvision/`; 删自研 llm/perception/executor; 写 verifier 3 层 / lark_skills / bench yaml / plan v0.3 |
+| 2026-04-27 19:42 | **IM 子产品扩展**: 加 `im_search_messages` + `im_at_mention` 两套 (skill MD + config JSON + bench YAML), IM 用例数 1→3, M2 标杆 (IM ≥ 3 E2E) 达标 |
+| 2026-04-27 19:53 | **本地 .env 实体 + larkvision 软链**: 一份 .env, 主仓和 larkvision 双入口 (cwd) 都能 dotenv 加载, 不用每次 export |
+| 2026-04-27 20:24 | **larkvision/pyproject.toml 工程化补丁**: 让 `cd larkvision && uv run` 自动用 larkvision/.venv (Python 3.12, 含 pynput/langchain), 修复 ModuleNotFoundError; 首次需 `uv sync && uv pip install -r requirements.txt` |
+| 2026-04-27 20:30 | **examples/configs 软链补丁**: `examples/configs -> ../configs`, 修复 main.py L294 把相对 config 路径强制 join 到 `__file__.parent` 导致 FileNotFoundError; .gitignore 改 globstar 兼容副作用 |

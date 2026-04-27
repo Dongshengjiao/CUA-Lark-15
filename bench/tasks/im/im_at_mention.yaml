@@ -1,0 +1,48 @@
+# IM 子产品 - @ 提及成员并发消息
+# 套路同 im_send_text, 关键点: @ 触发候选浮窗 -> input_text 过滤 -> enter 选第一个
+
+id: im_at_mention_in_group
+domain: im
+category: advanced
+difficulty: medium
+
+description: |
+  在指定飞书群组中, 触发 @ 候选浮窗, 选中目标成员后发送一条消息. 验证聊天历史中出现含 @<contact> 蓝色标签 + 消息文本的新条目.
+
+task: |
+  Send a message in Lark (飞书) group '{group}' that @-mentions {contact} with content '{message}'. Follow these steps in order, and execute exactly one action per step.
+  Step 1: Use the run_apple_script action with script='tell application "Lark" to activate' to force Lark to the foreground.
+  Step 2: Use multi_Hotkey action with key1='cmd' and key2='k' to open the Lark global search dialog.
+  Step 3: Use input_text action with text='{group}' to search for the target group.
+  Step 4: Use Hotkey action with key='enter' to enter the first matching group chat.
+  Step 5: Use input_text action with text='@' to trigger the member mention popup.
+  Step 6: Use input_text action with text='{contact}' to filter the mention popup to the target member.
+  Step 7: Use Hotkey action with key='enter' to confirm and select the first member candidate; the input field should now show a blue @{contact} tag.
+  Step 8: Use input_text action with text=' {message}' (note the leading space) to type the message body after the mention tag.
+  Step 9: Use Hotkey action with key='enter' to send the message. The task is complete when the chat history shows a new message with a blue @{contact} tag followed by '{message}'.
+
+parameters:
+  group: 测试群
+  contact: 钟梓文
+  message: 帮我看一下这个
+
+verifier:
+  l1_expect_change: true
+  l2_expect_keywords:
+    - "{contact}"
+    - "{message}"
+  l2_forbid_keywords:
+    - "发送失败"
+    - "网络异常"
+    - "@ 失败"
+  l3_question: |
+    Did the new message in the chat history contain a blue @{contact} mention tag followed by the text '{message}'?
+
+oracle:
+  command: lark-cli im +messages-search --chat "{group}" --keyword "{message}" --limit 1
+  expect_min_results: 1
+
+constraints:
+  max_steps: 16
+  max_actions_per_step: 1
+  timeout_seconds: 240

@@ -36,9 +36,44 @@
 
 ```
 examples/config.json    # 改 LLM provider/model/base_url/timeout/task
+examples/configs        # 【新增】软链 -> ../configs (让 main.py L294 的相对路径解析能找到我们的 configs)
+configs/                # 【新增】子产品预设 config (lark_im_send / lark_im_search / lark_im_at_mention)
+lark_skills/            # 【新增】飞书专属 SOP (im / calendar / docs)
+pyproject.toml          # 【新增】工程化补丁: 让 uv 把 larkvision/ 识别为独立项目, 自动建 .venv
+.env -> ../.env         # 【新增】软链, 共享主仓的 .env (永远 .gitignore)
+UPSTREAM.md             # 【新增】本文 (引用合规)
 ```
 
 其余文件**保持上游原样**，便于后续 `git remote add upstream` + `git fetch upstream` 跟踪上游更新。
+
+### 4.1 关于 pyproject.toml 的工程化补丁
+
+上游用 `requirements.txt` 管依赖, 但 `cd larkvision && uv run python ...` 时 uv 会向上找父级 pyproject.toml, 错误地用主仓 venv (缺 pynput / langchain 等). 我们加一个**极简** `pyproject.toml` 让 uv 把 larkvision/ 当独立项目, 自动建 `.venv` (Python 3.12).
+
+**`pyproject.toml` 设计原则**:
+- 依赖列表故意留空 (`dependencies = []`)
+- **依赖真相源仍是 requirements.txt** (上游有更新只需 `uv pip install -r requirements.txt`)
+- 用户视角无感: `cd larkvision && uv run python examples/main.py --config ...` 直接生效
+
+**首次配置流程** (一次性):
+```bash
+cd larkvision
+uv sync                              # 建空 .venv (Python 3.12)
+uv pip install -r requirements.txt   # 装上游所有依赖 (pynput / langchain / playwright ...)
+```
+
+之后跑任何 example 都不需要再装。
+
+### 4.2 关于 examples/configs 软链
+
+`main.py` L294 把相对 `--config` 路径 join 到 `__file__.parent` (即 `examples/`), 默认期望 config 在 `examples/configs/...`. 我们把 configs 放在 `larkvision/configs/` (仓库根更清晰), 通过软链 `examples/configs -> ../configs` 让两条路径都能访问同一份文件:
+
+```bash
+cd larkvision
+uv run python examples/main.py --config configs/lark_im_send.json   # 直接 work
+```
+
+软链本身入库 (git 跟踪 symlink); 软链产生的副作用是 `output_dir` 解析后会落到 `configs/.turix_tmp/`, 已在 `.gitignore` 用 globstar `larkvision/**/.turix_tmp/` 兼容.
 
 ## 5. 主仓自研补强模块（不在 larkvision/ 内，作为外挂）
 

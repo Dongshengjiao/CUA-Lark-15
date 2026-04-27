@@ -53,8 +53,9 @@ agent-tools/
 bench/output/
 bench/cache/
 
-# larkvision/.venv 由 TuriX 自带 venv（独立 Python 3.12，不入库）
+# larkvision 子项目运行产物 (TuriX 输出 / venv / log) - 一律不入库
 larkvision/.venv/
-larkvision/.turix_tmp/
-larkvision/*.log
-larkvision/examples/*.log
+larkvision/**/.turix_tmp/
+larkvision/**/*.log
+# examples/configs 是软链 -> ../configs (工程化补丁让 main.py 找得到 config)
+# 软链本身已入库, 不忽略
