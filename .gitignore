@@ -53,5 +53,8 @@ agent-tools/
 bench/output/
 bench/cache/
 
-# 外部参考仓库（仅本地阅读，不入库）
-references/
+# larkvision/.venv 由 TuriX 自带 venv（独立 Python 3.12，不入库）
+larkvision/.venv/
+larkvision/.turix_tmp/
+larkvision/*.log
+larkvision/examples/*.log

@@ -1,0 +1,49 @@
+# IM 子产品 - 发送文本消息
+# 复刻 2026-04-26 已经跑通的飞书发消息任务 (3 步 65s, qwen3-vl-plus)
+
+id: im_send_text_to_contact
+domain: im
+category: basic
+difficulty: easy
+
+description: |
+  在飞书 IM 中给指定联系人发送一条文本消息, 验证消息成功出现在聊天历史中.
+
+# 任务 prompt - 直接复用 4-26 验证过的 imperative step-by-step 模板
+task: |
+  Send a Lark (飞书) message saying '{message}' to the contact {contact}. Follow these steps in order, and execute exactly one action per step.
+  Step 1: Use the run_apple_script action with script='tell application "Lark" to activate' to force Lark to the foreground.
+  Step 2: Use multi_Hotkey action with key1='cmd' and key2='k' to open the Lark global search dialog.
+  Step 3: Use input_text action with text='{contact}' to type the contact name into the search box.
+  Step 4: Use Hotkey action with key='enter' to select the first search result and open the chat with {contact}.
+  Step 5: Look at the screen. The cursor should already be focused on the message input box at the bottom. Use input_text action with text='{message}' to type the message.
+  Step 6: Use Hotkey action with key='enter' to send the message. The task is complete when the message '{message}' appears in the chat history with {contact}.
+
+# 参数化 (runner 渲染 task 模板时填充)
+parameters:
+  message: hello
+  contact: 钟梓文
+
+# Verifier 三层期望
+verifier:
+  l1_expect_change: true       # 屏幕应该改变
+  l2_expect_keywords:           # OCR 应该出现这些字
+    - "{message}"
+    - "{contact}"
+  l2_forbid_keywords:           # OCR 不应该出现这些字
+    - "失败"
+    - "网络异常"
+    - "重试"
+  l3_question: |
+    Did the message '{message}' successfully appear in the chat history with {contact}?
+
+# Oracle (lark-cli 校准, 评测期 only)
+oracle:
+  command: lark-cli im +messages-search --chat "{contact}" --keyword "{message}" --limit 1
+  expect_min_results: 1
+
+# 上限保护
+constraints:
+  max_steps: 12
+  max_actions_per_step: 1
+  timeout_seconds: 180

@@ -6,17 +6,34 @@
 
 ## Architecture
 
-主仓本身是飞书 Lark 桌面端的视觉测试 Agent 项目（pyproject.toml 标注，依赖 volcengine-python-sdk + opencv + mss）。`references/turix-cua/` 内嵌 TuriX-CUA 源码作为 CUA 选型对照实验，独立 venv 在 `references/turix-cua/.venv`（Python 3.12.13，via uv）。
+**v0.0.3 路线 (2026-04-27)**: 基于 TuriX-CUA 二开 + 自研补强模块. 不再完全自研 CUA 框架.
 
-CUA 实验栈：
-- `references/turix-cua/.venv` — Python 3.12 隔离环境（uv 管理）
-- DashScope OpenAI 兼容端点 `https://dashscope.aliyuncs.com/compatible-mode/v1`
-- `examples/config.json`：brain/actor/planner = `qwen3-vl-plus`，memory = `qwen3-vl-flash`，全部 `timeout: 45`
-- API key 通过 env `OPENAI_API_KEY` 注入，**不落 JSON**
-- `~/.agents/skills/` 是 skill 真实存储，`~/.claude/skills/` 与 `~/.cursor/skills/` 是软链入口
+```
+larkvision/         # vendored TuriX-CUA (commit 8f80ae6, MIT)
+├── src/            #   上游源码不动
+├── examples/       #   入口 + 我们改的 config.json
+├── configs/        #   【自研】子产品预设
+├── lark_skills/    #   【自研】飞书专属 SOP
+└── UPSTREAM.md     #   FAQ Q4 引用合规
+
+agent/              # 【自研】外挂式补强 (Python 3.11, uv)
+├── verifier/       #   ⭐ 三层视觉验证 (TuriX 没做)
+├── reporter/       #   评测报告
+└── recovery/       #   M5 自愈
+
+bench/tasks/        # 【自研】FeishuCUA-Bench YAML 用例
+```
+
+**主仓 venv**: Python 3.11 (uv) 只装 verifier/bench 依赖 (cv2 + scikit-image + RapidOCR + streamlit). ruff 排除 `larkvision/`.
+
+**larkvision venv**: Python 3.12 独立 (uv)，跑 TuriX 主进程 (LangChain 全家桶 + DashScope OpenAI 兼容端点).
+
+API key 通过进程 env `OPENAI_API_KEY` 注入，**不落 JSON**. 所有 LLM 配 `timeout: 45` 防 hang.
 
 ## Key Decisions
 
+- **路线变更 v0.0.3 = 基于 TuriX-CUA 二开** — 2026-04-27 [[2026-04-27#decision]]（剩 17 天自研 SOTA 不现实；4-26 已实测 TuriX + qwen 飞书可用；FAQ Q4 鼓励借鉴）
+- **vendor 子目录 + 外挂补强**而非 fork/submodule — 2026-04-27（评委一眼看到代码 + 自研边界清晰）
 - 选 TuriX-CUA Python 源码而非 SuperPower DMG App — 2026-04-26（DMG 是 SaaS 积分制不能 BYOK）
 - 选 DashScope qwen3-vl-plus 作为 brain/actor — 2026-04-26（替代 turix-actor 收费 / Doubao-1.5-UI-TARS 需审核 / 本地 Ollama 7B 内存紧）
 - 所有 LLM 配 `timeout: 45` — 2026-04-26（DashScope 偶发 hang）
@@ -29,6 +46,7 @@ CUA 实验栈：
 
 ## Resolved Patterns
 
+- **vendor 子目录 + 外挂式补强 = 二开开源项目最优工程结构**：物理复制 + 锁 commit + UPSTREAM.md + 主仓只装补强依赖 + ruff exclude 上游 — 学到 2026-04-27 [[2026-04-27#pattern-vendor-外挂式补强]]
 - **CUA prompt 风格**：通用 VLM 必须用 imperative step-by-step + 显式 action 名 + 显式参数；不能用 "open Calculator" 这种意图描述 — 学到 2026-04-26 [[2026-04-26#pattern-imperative-step-by-step-prompts-for-generic-vlm-cua-agents]]
 - **App 激活靠 AppleScript 不靠 open_app**：`run_apple_script` 跑 `tell application X to activate` 比 `open_app` 抢焦点更可靠 — 学到 2026-04-26 [[2026-04-26#fix-use-run-apple-script-to-forcefully-activate-lark-replace-hotkeys-with-input-text]]
 - **能用 AppleScript 干的事不用 GUI 戳**：CUA 的最优组合 = AppleScript 处理"启动/激活/Safari 控制/系统调用"，纯 GUI 只用于真做不到的事 — 学到 2026-04-26

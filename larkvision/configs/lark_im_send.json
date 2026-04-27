@@ -1,0 +1,59 @@
+{
+  "_comment": "飞书 IM 发送文本消息预设 (基于 4-26 跑通的配置). 用法: cd larkvision && uv run python examples/main.py --config configs/lark_im_send.json",
+  "logging_level": "DEBUG",
+  "output_dir": ".turix_tmp",
+  "brain_enable_thinking": false,
+
+  "brain_llm": {
+    "provider": "turix",
+    "model_name": "qwen3-vl-plus",
+    "api_key": "",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "timeout": 45
+  },
+  "actor_llm": {
+    "provider": "turix",
+    "model_name": "qwen3-vl-plus",
+    "api_key": "",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "timeout": 45
+  },
+  "planner_llm": {
+    "provider": "turix",
+    "model_name": "qwen3-vl-plus",
+    "api_key": "",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "timeout": 45
+  },
+  "memory_llm": {
+    "provider": "turix",
+    "model_name": "qwen3-vl-flash",
+    "api_key": "",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "timeout": 45
+  },
+
+  "agent": {
+    "task": "Send a Lark (飞书) message saying 'hello' to the contact 钟梓文. Follow these steps in order, and execute exactly one action per step. Step 1: Use the run_apple_script action with script='tell application \"Lark\" to activate' to force Lark to the foreground. Step 2: Use multi_Hotkey action with key1='cmd' and key2='k' to open the Lark global search dialog. Step 3: Use input_text action with text='钟梓文' to type the contact name into the search box. Step 4: Use Hotkey action with key='enter' to select the first search result and open the chat with 钟梓文. Step 5: Look at the screen. The cursor should already be focused on the message input box at the bottom. Use input_text action with text='hello' to type the message. Step 6: Use Hotkey action with key='enter' to send the message. The task is complete when the message 'hello' appears in the chat history with 钟梓文.",
+    "memory_budget_tokens": 2000,
+    "summary_memory_budget_tokens": 8000,
+    "use_ui": false,
+    "use_search": false,
+    "use_skills": true,
+    "skills_dir": "lark_skills",
+    "skills_max_chars": 4000,
+    "use_plan": false,
+    "max_actions_per_step": 1,
+    "max_steps": 12,
+    "force_stop_hotkey": "command+shift+2",
+    "use_turix": true,
+    "resume": false,
+    "agent_id": null,
+    "save_brain_conversation_path": "brain_llm_interactions.log",
+    "save_actor_conversation_path": "actor_llm_interactions.log",
+    "save_planner_conversation_path": "planner_llm_interactions.log",
+    "save_actor_conversation_path_encoding": "utf-8",
+    "save_brain_conversation_path_encoding": "utf-8",
+    "save_planner_conversation_path_encoding": "utf-8"
+  }
+}

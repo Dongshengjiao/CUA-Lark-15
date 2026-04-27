@@ -1,129 +1,128 @@
-# 代码架构同步文档（doc_auto）
+# 代码架构同步文档 (doc_auto)
 
-> 按 workspace rule 维护。每次代码变更，需同步更新对应模块说明并追加修改时间戳。
+> 按 workspace rule 维护。每次代码变更需同步更新对应模块说明并追加修改时间戳。
 
-最近更新：2026-04-26 13:25（双轨主模型：Qwen + 豆包）
+最近更新：2026-04-27 18:08（v0.3 路线变更落盘）
 
-## 1. 模块总览
+## 1. 架构总览 (v0.3)
+
+主仓 = **TuriX-CUA 二开 (larkvision/) + 自研补强模块 (agent/) + FeishuCUA-Bench (bench/)**.
 
 ```
-agent/
-├── llm/                LLM 抽象层（Provider 解耦 + 路由）
-│   ├── base.py         LLMClient ABC + LLMMessage + LLMResponse + ReasoningLevel
-│   ├── doubao.py       豆包 Provider（火山方舟 OpenAI 兼容协议）
-│   ├── qwen.py         Qwen Provider（阿里云 DashScope OpenAI 兼容协议）
-│   └── router.py       LLMRouter：build_default_client(provider) 工厂 + 跨 Provider fallback
-├── perception/         视觉感知层
-│   ├── screenshot.py   ScreenCapture：mss 截屏（全屏 / 区域）
-│   └── grounder.py     VisionGrounder：截图 + 意图 → (x, y) 结构化输出
-├── executor/           执行层
-│   ├── mouse.py        Mouse：click / double / right / drag / scroll
-│   └── keyboard.py     Keyboard：type_text（中文剪贴板）/ press / hotkey
-├── planner/            规划层（M2 占位）
-├── verifier/           验证层（M2 占位）
-├── recovery/           自愈层（M5 占位）
-├── reporter/           报告层（M4 占位）
-└── cli.py              `lvt` Typer 命令行入口
+CUA-Lark-15/
+├── larkvision/                      # vendored TuriX-CUA (主 Agent 进程)
+│   ├── UPSTREAM.md                  # 引用合规 (FAQ Q4)
+│   ├── src/                         # TuriX 源码 (commit 8f80ae6)
+│   │   ├── agent/                   # Brain + Actor + Planner + Memory
+│   │   ├── controller/              # Action Registry + dispatch
+│   │   └── mac/                     # macOS 原生 API (Quartz / AppleScript / pyautogui)
+│   ├── examples/                    # main.py + config.json
+│   ├── configs/                     # 子产品预设 (lark_im_send.json 等)
+│   ├── lark_skills/                 # 飞书专属 SOP (Markdown)
+│   │   ├── im/                      # 即时通讯 (im_send_text.md)
+│   │   ├── calendar/                # 日历 (M3)
+│   │   └── docs/                    # 云文档 (M3)
+│   └── skills/                      # 上游样例 (保留)
+│
+├── agent/                           # 【自研】TuriX 外挂式补强
+│   ├── verifier/                    # ⭐ 三层视觉验证
+│   │   ├── types.py                 #   公共 dataclass: VerdictLevel / VerificationResult / VoteOutcome
+│   │   ├── pixel_diff.py            #   L1: SSIM 像素相似度
+│   │   ├── ocr_check.py             #   L2: RapidOCR 关键词校验
+│   │   └── vote.py                  #   加权投票 (L3 高置信独立决策)
+│   ├── reporter/
+│   │   └── metrics.py               #   RunMetrics + summarize
+│   ├── recovery/                    # M5
+│   └── planner/                     # M2 (高层编排, 调 TuriX Brain 输出)
+│
+├── bench/                           # 【自研】FeishuCUA-Bench
+│   ├── tasks/                       # YAML 用例
+│   │   └── im/im_send_text.yaml     # 复刻 4-26 跑通的发消息
+│   ├── runner.py                    # M4: 调 TuriX agent + verifier
+│   └── oracle.py                    # M4: lark-cli 后端校准
+└── tests/                           # 自研模块单测 (M2 起补)
 ```
 
-## 2. 关键类与接口
+## 2. 关键模块接口
 
-### 2.1 `agent.llm.base`
+### 2.1 `agent.verifier`
 
-| 类型 | 说明 |
+| 类型 | 职责 |
 |---|---|
-| `ReasoningLevel` | 枚举 minimal / low / medium / high；语义统一，由 Provider 适配字段 |
-| `LLMMessage` | role + text + image_paths + image_urls；`has_images()` |
-| `LLMResponse` | content + raw + token 用量 + reasoning + latency_ms |
-| `LLMClient(ABC)` | `chat()` / `chat_with_image()` 必须实现 |
+| `VerdictLevel` | StrEnum: pass / fail / uncertain / skipped |
+| `VerificationResult` | 单层结果: layer / verdict / confidence / evidence / elapsed_ms |
+| `VoteOutcome` | 投票结果: final / score / layers / reason |
+| `pixel_diff_score(b, a) -> float` | SSIM (0-1) |
+| `verify_changed(b, a, expect_change, threshold) -> VerificationResult` | L1 验证 |
+| `extract_text(path) -> str` | RapidOCR 全文 |
+| `verify_text(path, expect, forbid) -> VerificationResult` | L2 验证 |
+| `vote(results, weights, high_conf_threshold) -> VoteOutcome` | 加权投票 |
 
-### 2.2 `agent.llm.doubao.DoubaoClient`
+权重默认: L1=0.2 / L2=0.3 / L3=0.5; L3 confidence ≥ 0.9 时独立决策.
 
-- 通过 OpenAI 兼容 SDK 调用 `https://ark.cn-beijing.volces.com/api/v3`
-- `is_pro=True` → reasoning 字段映射到豆包 2.0 Pro 的 `thinking={"type": minimal/low/medium/high}`
-- `is_pro=False` → 映射到豆包 1.6 的 `off / auto / on`
-- 内置 tenacity 重试（3 次指数退避）
-- 多模态：`image_paths` 自动 base64 编码为 data URL
+### 2.2 `agent.reporter.metrics`
 
-### 2.2b `agent.llm.qwen.QwenClient`
-
-- 通过 OpenAI 兼容协议调用 `https://dashscope.aliyuncs.com/compatible-mode/v1`（中国北京）
-- 支持的模型：qwen3-vl-plus / qwen3-vl-flash / qwen-vl-max / qwen-vl-plus / qwen2.5-vl-{72b,32b,7b}-instruct
-- `ReasoningLevel.MINIMAL` → `enable_thinking=False`（直接答）
-- 其他档位 → `enable_thinking=True`（开思考）
-- 主推 **qwen3-vl-plus**：官方明确 GUI Agent 专项训练，DeepStack 多级 ViT 像素级理解
-- env：`DASHSCOPE_API_KEY` 或 `QWEN_API_KEY`
-- 复用 doubao 的 `_to_openai_messages` 多模态消息适配
-
-### 2.3 `agent.llm.router.LLMRouter`
-
-| 任务类型 (TaskType) | 默认 reasoning |
+| 类型 | 职责 |
 |---|---|
-| `GROUNDING` | minimal |
-| `SIMPLE_VERIFY` | minimal |
-| `PLANNING` | low |
-| `CROSS_PRODUCT` | medium |
-| `SELF_HEAL` | medium |
+| `RunMetrics` | 单次 run 指标快照: success/elapsed/step_count/llm_calls/tokens |
+| `summarize(runs) -> dict` | Bench 聚合: success_rate, avg_elapsed, total_tokens 等 |
 
-- primary 失败自动切 fallback（跨 Provider：Qwen ↔ 豆包，按可用 Key 选）
-- `summary()` 输出 by_task / by_reasoning / 总延迟 / token / fallback_count
-- 工厂函数 `build_default_client(provider)`：env 控制（LLM_PROVIDER=qwen|doubao），缺省按可用 Key 自动选
+### 2.3 `bench/tasks/*/yaml`
 
-### 2.4 `agent.perception`
-
-- `ScreenCapture.capture(monitor_index=1)` → `ScreenshotResult(path, w, h, scale, ms)`
-- `ScreenCapture.capture_region(left, top, w, h)` → 区域截图
-- `VisionGrounder.locate(path, target_desc, reasoning)` → `GroundingResult(found, x, y, confidence, ...)`
-  - 通过 system prompt 强制返回结构化 JSON
-  - 解析支持纯 JSON / Markdown 代码块 / 含散文的 JSON
-
-### 2.5 `agent.executor`
-
-- `Mouse(scale_factor)` 自动处理 Retina 物理→逻辑坐标
-- `Mouse.click / double_click / right_click / drag / scroll`
-- `Keyboard.type_text(s)` 中文走 pyperclip 剪贴板，英文走 pyautogui.write
-- `Keyboard.hotkey('cmd+a')` 自动跨平台映射 cmd ↔ ctrl
-
-## 3. 数据流（M1 单步操作）
-
-```
-[用户] 自然语言意图
-    ↓
-ScreenCapture.capture()  → ScreenshotResult(path)
-    ↓
-VisionGrounder.locate(path, target)  → 调用 LLMRouter（TaskType.GROUNDING / minimal）
-    ↓
-GroundingResult(found, x, y, confidence)
-    ↓
-Mouse.click(x, y)  / Keyboard.type_text(...)
+YAML 用例 schema:
+```yaml
+id: <unique>
+domain: im | calendar | docs | cross
+task: <imperative step-by-step prompt 模板, 含 {param} 占位>
+parameters: { ... }
+verifier:
+  l1_expect_change: bool
+  l2_expect_keywords: [str]
+  l2_forbid_keywords: [str]
+  l3_question: str
+oracle:
+  command: str  # lark-cli 命令
+  expect_min_results: int
+constraints:
+  max_steps: int
+  timeout_seconds: int
 ```
 
-## 4. 测试覆盖
+### 2.4 `larkvision/` (vendored, 不在我们维护)
 
-| 文件 | 用例 |
-|---|---|
-| `tests/test_llm_base.py` | ReasoningLevel 值；LLMMessage 多模态；OpenAI 协议转换 |
-| `tests/test_router.py` | 任务→reasoning 路由；primary 失败 fallback；统计正确 |
-| `tests/test_grounder.py` | 纯/代码块/散文中提取 JSON；解析有效/缺失/异常路径 |
-| `tests/test_qwen.py` | QwenClient 构造、Key 多源回退、reasoning 映射、多模态消息 |
-| `tests/test_router_provider.py` | LLM_PROVIDER 显式选；按 Key 自动选；无 Key 报错 |
+- 上游入口: `examples/main.py`
+- 上游 Agent: `src/agent/service.py`, `src/controller/service.py`
+- 我们改造: `examples/config.json` + 新增 `configs/` + `lark_skills/`
+- 详见 [larkvision/UPSTREAM.md](../larkvision/UPSTREAM.md)
 
-当前：32/32 全过。
+## 3. 依赖关系
 
-## 5. 待补模块（按里程碑）
+主仓 `pyproject.toml` 只装自研模块需要的依赖 (cv2 / scikit-image / RapidOCR / streamlit).
+larkvision 用自带 venv (Python 3.12 + LangChain 全家桶), 见 `larkvision/requirements.txt`.
 
-| 模块 | 里程碑 | 关键文件 |
-|---|---|---|
-| Planner | M2 | `agent/planner/agent.py`、`prompts.py` |
-| Verifier L1/L2/L3 + 投票 | M2 | `agent/verifier/{pixel_diff,ocr_check,semantic_check,vote}.py` |
-| Bench Runner + Oracle | M4 | `bench/runner.py`、`bench/oracle.py` |
-| Self-Heal | M5 | `agent/recovery/self_heal.py` |
-| Reporter Dashboard | M4 | `agent/reporter/dashboard.py`（Streamlit） |
+## 4. 数据流 (M4 Bench Runner)
 
-## 6. 修改时间戳记录
+```
+bench/tasks/im/*.yaml   → bench/runner.py 渲染 task 模板
+       ↓
+larkvision/examples/main.py --task <rendered>
+       ↓
+TuriX Agent 主循环 (Brain → Actor → Controller → Memory)
+       ↓
+截图序列 + 操作轨迹 → agent/verifier/{pixel_diff, ocr_check, vote}
+       ↓                        ↑ (L3 调用 TuriX 同款 LLM)
+       ↓
+bench/oracle.py (lark-cli 校准)
+       ↓
+agent/reporter/metrics.py (RunMetrics) → Markdown 报告 + Streamlit Dashboard
+```
+
+## 5. 修改时间戳记录
 
 | 时间 | 改动 |
 |---|---|
-| 2026-04-25 19:50 | M1 脚手架落盘：LLM 抽象 + 视觉感知 + 执行 + 18 单测 + Demo 脚本 |
-| 2026-04-25 20:55 | 调研 TuriX-CUA（references/turix-cua/）；产出 docs/turix_cua_review.md；规划 6 处可落地小改动（归一化坐标 / Action Pydantic / 双截图 / 急停热键 / 结构化校验 / Skills 目录） |
-| 2026-04-26 13:25 | 双轨主模型落盘：QwenClient（qwen3-vl-plus 主，GUI Agent 专项）；LLMRouter 跨 Provider fallback；.env.example 升级；plan v0.3 增量补丁；新增 11 单测，32/32 全过 |
+| 2026-04-25 19:50 | M1 脚手架落盘 (LLM 抽象 + 视觉感知 + 执行 + 18 单测) |
+| 2026-04-25 20:55 | TuriX-CUA 调研报告 (`docs/turix_cua_review.md`); references/ 临时仓 |
+| 2026-04-26 19:54 | TuriX + qwen3-vl-plus 飞书发消息打通 (3 步 65s) |
+| 2026-04-26 commit b76e878 | 双 Provider 路由 + plan v0.3 (后被回滚) |
+| 2026-04-27 18:08 | **v0.3 路线变更**: vendor TuriX → `larkvision/`; 删自研 llm/perception/executor; 写 verifier 3 层 / lark_skills / bench yaml / plan v0.3 |
