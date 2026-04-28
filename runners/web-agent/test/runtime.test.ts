@@ -38,12 +38,26 @@ class FakeRuntime extends AgentRuntime {
    */
   public errorWithoutThrow: { name?: string; message: string } | null = null;
 
+  // M5 capture surfaces — populated by the FakeRuntime's overrides so
+  // tests can assert what the runtime would have done.
+  public capturedSystemPrompts: string[] = [];
+  public capturedSkillIDs: Array<string | null> = [];
+  public navigatedStartingURLs: string[] = [];
+  public loginPrecheckCalls: Array<{ skillID: string; taskID: string }> = [];
+  public loginPrecheckResult:
+    | { ok: true }
+    | { ok: false; kind: 'cancelled' | 'pageError' | 'vlmTimeout' | 'vlmError'; message: string } =
+    { ok: true };
+
   protected async createAgent(args: {
     profile: ResolvedProfile;
+    skill: { id: string } | null;
     onStep: (data: GUIAgentData) => void;
     onFinalAnswer: (answer: string) => void;
     onError: (error: unknown) => void;
   }): Promise<RunnableAgent> {
+    this.capturedSkillIDs.push(args.skill?.id ?? null);
+    this.capturedSystemPrompts.push(this.buildSystemPrompt(args.skill as never));
     return {
       run: async (_instruction: string) => {
         for (const data of this.agentScript) {
@@ -60,6 +74,18 @@ class FakeRuntime extends AgentRuntime {
         }
       },
     };
+  }
+
+  protected async navigateToStartingURL(skill: { startingURL: string }): Promise<void> {
+    this.navigatedStartingURLs.push(skill.startingURL);
+  }
+
+  protected async runLoginPrecheck(
+    skill: { id: string },
+    taskID: string,
+  ): Promise<{ ok: true } | { ok: false; kind: 'cancelled' | 'pageError' | 'vlmTimeout' | 'vlmError'; message: string }> {
+    this.loginPrecheckCalls.push({ skillID: skill.id, taskID });
+    return this.loginPrecheckResult;
   }
 }
 
@@ -310,5 +336,121 @@ describe('M3 AgentRuntime — envelope flow', () => {
     if (stepEnv && stepEnv.type === 'event' && stepEnv.event.type === 'webAgentStepUpdate') {
       expect(stepEnv.event.payload.screenshotURL).toBeNull();
     }
+  });
+});
+
+// MARK: - M5 task 5.2 additions
+
+describe('M5 AgentRuntime — skill resolution + login precheck', () => {
+  function makeFakeSkill(overrides: Partial<{ id: string; loginURL: string; startingURL: string; addendum: string }> = {}) {
+    return {
+      id: overrides.id ?? 'feishu_im_send',
+      displayName: 'feishu',
+      matchKeywords: ['飞书'],
+      cookieDomain: '.feishu.cn',
+      userDataDirSegment: 'feishu',
+      loginURL: overrides.loginURL ?? 'https://passport.feishu.cn/',
+      startingURL: overrides.startingURL ?? 'https://www.feishu.cn/messenger/',
+      systemPromptAddendum: overrides.addendum ?? 'You are operating Feishu IM. Click coordinates 40-400 px wide.',
+    } as never;
+  }
+
+  it('injects systemPromptAddendum when a skill is matched', async () => {
+    const { sink } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.finalAnswer = 'ok';
+
+    const skill = makeFakeSkill({ addendum: 'EXTRA-FEISHU-INSTRUCTIONS' });
+    await runtime.runTask({ taskID: 't1', prompt: 'send feishu im', skill }, PROFILE);
+
+    expect(runtime.capturedSkillIDs).toEqual(['feishu_im_send']);
+    expect(runtime.capturedSystemPrompts).toHaveLength(1);
+    expect(runtime.capturedSystemPrompts[0]).toContain('You are a GUI agent');
+    expect(runtime.capturedSystemPrompts[0]).toContain('EXTRA-FEISHU-INSTRUCTIONS');
+  });
+
+  it('does NOT inject any addendum when skill is null (generic mode)', async () => {
+    const { sink } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.finalAnswer = 'ok';
+
+    await runtime.runTask({ taskID: 't1', prompt: 'open example.com', skill: null }, PROFILE);
+
+    expect(runtime.capturedSkillIDs).toEqual([null]);
+    expect(runtime.capturedSystemPrompts[0]).toContain('You are a GUI agent');
+    // base prompt ends with "## User Instruction\n" — no extra addendum after it.
+    expect(runtime.capturedSystemPrompts[0].endsWith('## User Instruction\n')).toBe(true);
+  });
+
+  it('skips login precheck and starting nav when skill is null', async () => {
+    const { sink } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.finalAnswer = 'ok';
+
+    await runtime.runTask({ taskID: 't1', prompt: 'open example.com', skill: null }, PROFILE);
+
+    expect(runtime.loginPrecheckCalls).toEqual([]);
+    expect(runtime.navigatedStartingURLs).toEqual([]);
+  });
+
+  it('runs login precheck and navigates startingURL when skill is set and precheck passes', async () => {
+    const { sink, envelopes } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.finalAnswer = 'ok';
+    runtime.loginPrecheckResult = { ok: true };
+
+    const skill = makeFakeSkill();
+    await runtime.runTask({ taskID: 't1', prompt: 'send feishu', skill }, PROFILE);
+
+    expect(runtime.loginPrecheckCalls).toEqual([{ skillID: 'feishu_im_send', taskID: 't1' }]);
+    expect(runtime.navigatedStartingURLs).toEqual(['https://www.feishu.cn/messenger/']);
+    // No approval / failed envelope — task completes normally.
+    const failed = envelopes.find((e) => e.type === 'event' && e.event.type === 'webAgentTaskFailed');
+    expect(failed).toBeUndefined();
+  });
+
+  it('emits webAgentTaskFailed{cancelled} when login precheck reports timeout', async () => {
+    const { sink, envelopes } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.loginPrecheckResult = {
+      ok: false,
+      kind: 'cancelled',
+      message: 'login timeout (30min)',
+    };
+
+    const skill = makeFakeSkill();
+    await runtime.runTask({ taskID: 't1', prompt: 'send feishu', skill }, PROFILE);
+
+    const failed = envelopes.find(
+      (e) => e.type === 'event' && e.event.type === 'webAgentTaskFailed',
+    );
+    expect(failed).toBeDefined();
+    if (failed && failed.type === 'event' && failed.event.type === 'webAgentTaskFailed') {
+      expect(failed.event.payload.kind).toBe('cancelled');
+      expect(failed.event.payload.message).toContain('login timeout');
+    }
+    // GUIAgent must NOT have been built when precheck fails.
+    expect(runtime.capturedSystemPrompts).toEqual([]);
+    expect(runtime.navigatedStartingURLs).toEqual([]);
   });
 });

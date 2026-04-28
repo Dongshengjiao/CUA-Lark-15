@@ -17,6 +17,8 @@ import { BridgeClient, BridgeProtocolMismatchError, defaultSocketPath } from './
 import type { BridgeEnvelope, BridgeCommand } from './bridge/types.js';
 import { resolveProfile, type ResolvedProfile } from './profiles/index.js';
 import { AgentRuntime } from './agent/runtime.js';
+import { userDataDirFor } from './agent/profiles_dir.js';
+import { registry, selectSkill } from './skills/registry.js';
 
 async function main() {
   const logger = new ConsoleLogger('[lark-island/runner]');
@@ -43,18 +45,23 @@ async function main() {
   // Order matters: if we registered first, the peer would immediately
   // start sending runWebAgentTask commands while Chromium was still
   // launching — the runner.runTask path needs a live LocalBrowser.
-  let browser: LocalBrowser;
+  //
+  // Default user-data-dir is the "generic" segment; M5 skill resolution
+  // may swap to a skill-specific browser via runtime.browserRef.
+  let browserRef: { current: LocalBrowser };
   try {
     logger.info('launching headless Chromium...');
-    browser = new LocalBrowser({ logger });
+    const browser = new LocalBrowser({ logger });
     await browser.launch({
       headless: true,
+      userDataDir: userDataDirFor('generic'),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled',
       ],
     });
+    browserRef = { current: browser };
     logger.info('Chromium ready');
   } catch (err) {
     logger.error(`Chromium launch failed: ${err}`);
@@ -62,10 +69,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 3) Build runtime over (sink=client, browser=Chromium).
+  // 3) Build runtime over (sink=client, browserRef=swappable Chromium).
   const runtime = new AgentRuntime({
     sink: client,
-    browser,
+    browserRef,
     logger,
     maxLoopCount: 12,
     vlmTimeoutMs: 180_000,
@@ -90,7 +97,7 @@ async function main() {
   client.onClose(async (reason, err) => {
     logger.warn(`bridge socket closed (${reason}${err ? `: ${err.message}` : ''}); shutting down`);
     try {
-      await browser.close();
+      await browserRef.current.close();
     } catch {
       // ignore
     }
@@ -147,11 +154,21 @@ async function main() {
       return;
     }
 
+    // M5 task 4.1: route the prompt through the skill registry first.
+    // Generic mode (skill === null) keeps the M3 behavior verbatim.
+    const resolvedSkill = selectSkill(prompt, registry);
+    logger.info(
+      `dispatching ${taskID} via skill=${resolvedSkill?.id ?? 'generic'}`,
+    );
+
     currentTaskID = taskID;
     logger.info(`starting task ${taskID} with profile ${profileResult.profile.name}`);
 
     runtime
-      .runTask({ taskID, prompt, skill: skill ?? null }, profileResult.profile as ResolvedProfile)
+      .runTask(
+        { taskID, prompt, skill: resolvedSkill },
+        profileResult.profile as ResolvedProfile,
+      )
       .catch((err) => {
         logger.error(`task ${taskID} threw: ${err}`);
       })
@@ -159,6 +176,11 @@ async function main() {
         logger.info(`task ${taskID} finished`);
         onTaskFinished();
       });
+
+    // M5: command.skill (the original cmd-passed string id) is no longer
+    // honoured here — the router is the source of truth. We still
+    // accept the field on the wire for future use.
+    void skill;
   }
 }
 

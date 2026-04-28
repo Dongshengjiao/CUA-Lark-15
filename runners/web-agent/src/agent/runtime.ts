@@ -14,6 +14,8 @@ import type { LocalBrowser } from '@agent-infra/browser';
 import type { GUIAgentData } from '@ui-tars/shared/types';
 import { saveScreenshot, screenshotPathFor } from './screenshots.js';
 import type { ResolvedProfile } from '../profiles/index.js';
+import type { Skill } from '../skills/registry.js';
+import { ensureLoggedIn, type BrowserRef } from './login.js';
 import type {
   AgentEvent,
   BridgeEnvelope,
@@ -28,8 +30,15 @@ export interface EnvelopeSink {
 export interface RunTaskCommand {
   taskID: string;
   prompt: string;
-  skill?: string | null;
+  /**
+   * Skill object selected by the router, or null if the prompt did
+   * not match any registered skill (i.e. generic mode).
+   */
+  skill?: Skill | null;
 }
+
+/** Re-export so callers don't need to dig into the login module. */
+export type { BrowserRef } from './login.js';
 
 /**
  * Minimal subset of GUIAgent the runtime actually relies on, so tests
@@ -42,7 +51,13 @@ export interface RunnableAgent {
 
 export interface AgentRuntimeOptions {
   sink: EnvelopeSink;
-  browser: LocalBrowser;
+  /**
+   * Mutable handle to the live LocalBrowser. The runtime can swap the
+   * underlying browser in/out (e.g. headless ↔ visible during a QR
+   * scan) and the runner main loop reads back through the same ref so
+   * it always sees the active browser when the socket closes.
+   */
+  browserRef: BrowserRef;
   /** Logger, defaults to a console logger labeled "[runtime]". */
   logger?: Logger;
   /** Loop cap forwarded to GUIAgent; default 25 (UI-TARS SDK default). */
@@ -56,9 +71,38 @@ export interface AgentRuntimeOptions {
 const DEFAULT_LOOP_COUNT = 8;
 const DEFAULT_VLM_TIMEOUT_MS = 180_000;
 
+// Default UI-TARS system prompt as shipped by @ui-tars/sdk. We
+// intentionally inline it (instead of importing) because the constants
+// module isn't a public re-export of the package.
+const BASE_SYSTEM_PROMPT = `You are a GUI agent. You are given a task and your action history, with screenshots. You need to perform the next action to complete the task.
+
+## Output Format
+\`\`\`
+Thought: ...
+Action: ...
+\`\`\`
+
+## Action Space
+click(start_box='[x1, y1, x2, y2]')
+left_double(start_box='[x1, y1, x2, y2]')
+right_single(start_box='[x1, y1, x2, y2]')
+drag(start_box='[x1, y1, x2, y2]', end_box='[x3, y3, x4, y4]')
+hotkey(key='')
+type(content='') #If you want to submit your input, use "\\n" at the end of \`content\`.
+scroll(start_box='[x1, y1, x2, y2]', direction='down or up or right or left')
+wait() #Sleep for 5s and take a screenshot to check for any changes.
+finished()
+call_user() # Submit the task and call the user when the task is unsolvable, or when you need the user's help.
+
+## Note
+- Write a small plan and finally summarize your next action (with its target element) in one sentence in \`Thought\` part.
+
+## User Instruction
+`;
+
 export class AgentRuntime {
   protected readonly sink: EnvelopeSink;
-  protected readonly browser: LocalBrowser;
+  protected readonly browserRef: BrowserRef;
   protected readonly logger: Logger;
   protected readonly maxLoopCount: number;
   protected readonly vlmTimeoutMs: number;
@@ -66,7 +110,7 @@ export class AgentRuntime {
 
   constructor(options: AgentRuntimeOptions) {
     this.sink = options.sink;
-    this.browser = options.browser;
+    this.browserRef = options.browserRef;
     this.logger = options.logger ?? new ConsoleLogger('[runtime]');
     this.maxLoopCount = options.maxLoopCount ?? DEFAULT_LOOP_COUNT;
     this.vlmTimeoutMs = options.vlmTimeoutMs ?? DEFAULT_VLM_TIMEOUT_MS;
@@ -75,6 +119,11 @@ export class AgentRuntime {
 
   async runTask(command: RunTaskCommand, profile: ResolvedProfile): Promise<void> {
     const startedAt = Date.now();
+    const skill = command.skill ?? null;
+
+    this.logger.info(
+      `routed task ${command.taskID} to skill ${skill?.id ?? 'generic'}`,
+    );
 
     this.emit({
       type: 'event',
@@ -83,12 +132,22 @@ export class AgentRuntime {
         payload: {
           taskID: command.taskID,
           prompt: command.prompt,
-          skill: command.skill ?? null,
+          skill: skill?.id ?? null,
           profileName: profile.name,
           timestamp: new Date(startedAt),
         },
       },
     });
+
+    // M5 task 3.x: login pre-check + QR flow. Subclasses can override
+    // `runLoginPrecheck` for testing without spinning up a real Chromium.
+    if (skill) {
+      const outcome = await this.runLoginPrecheck(skill, command.taskID);
+      if (!outcome.ok) {
+        this.emitFailure(command.taskID, outcome.kind, outcome.message, startedAt);
+        return;
+      }
+    }
 
     let stepCount = 0;
     let totalTokens = 0;
@@ -146,6 +205,7 @@ export class AgentRuntime {
     try {
       agent = await this.createAgent({
         profile,
+        skill,
         onStep,
         onFinalAnswer: (answer) => {
           finalAnswer = answer;
@@ -165,6 +225,13 @@ export class AgentRuntime {
       const { kind, message } = this.classifyError(err);
       this.emitFailure(command.taskID, kind, message, startedAt);
       throw err;
+    }
+
+    // If the skill defines a startingURL, navigate there before letting
+    // GUIAgent take over. Generic mode lets the prompt itself dictate
+    // the first navigation.
+    if (skill && skill.startingURL.trim() !== '') {
+      await this.navigateToStartingURL(skill);
     }
 
     try {
@@ -205,17 +272,63 @@ export class AgentRuntime {
     });
   }
 
+  /**
+   * Compose the GUIAgent system prompt by appending the skill's
+   * `systemPromptAddendum` to the base UI-TARS prompt. Exposed as
+   * protected so tests can verify the combined string without
+   * instantiating a real GUIAgent.
+   */
+  protected buildSystemPrompt(skill: Skill | null): string {
+    if (!skill) return BASE_SYSTEM_PROMPT;
+    return `${BASE_SYSTEM_PROMPT}\n\n${skill.systemPromptAddendum.trim()}\n`;
+  }
+
+  /**
+   * Test hook: override to skip the actual page navigation. Default
+   * opens a new page and goto's the skill's startingURL.
+   */
+  protected async navigateToStartingURL(skill: Skill): Promise<void> {
+    try {
+      const page = await this.browserRef.current.createPage();
+      await page.goto(skill.startingURL, {
+        waitUntil: 'domcontentloaded',
+        timeout: 20_000,
+      });
+    } catch (err) {
+      this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
+    }
+  }
+
+  /**
+   * Test hook: override in subclasses to short-circuit the login flow
+   * without launching a visible browser. Default delegates to
+   * `ensureLoggedIn` from `./login`.
+   */
+  protected async runLoginPrecheck(
+    skill: Skill,
+    taskID: string,
+  ): Promise<{ ok: true } | { ok: false; kind: WebAgentFailureKind; message: string }> {
+    return ensureLoggedIn({
+      taskID,
+      skill,
+      browserRef: this.browserRef,
+      sink: this.sink,
+      logger: this.logger,
+    });
+  }
+
   // Test hook: override to inject a mock GUIAgent without touching real
   // BrowserOperator / @ui-tars/sdk. Production builds a real GUIAgent
   // wired to the shared LocalBrowser.
   protected async createAgent(args: {
     profile: ResolvedProfile;
+    skill: Skill | null;
     onStep: (data: GUIAgentData) => void;
     onFinalAnswer: (answer: string) => void;
     onError: (error: unknown) => void;
   }): Promise<RunnableAgent> {
     const operator = new BrowserOperator({
-      browser: this.browser as unknown as never,
+      browser: this.browserRef.current as unknown as never,
       browserType: 'chrome' as never,
       logger: this.logger,
       highlightClickableElements: true,
@@ -226,6 +339,8 @@ export class AgentRuntime {
       },
     });
 
+    const systemPrompt = this.buildSystemPrompt(args.skill);
+
     const guiAgent = new GUIAgent({
       operator,
       model: {
@@ -234,6 +349,7 @@ export class AgentRuntime {
         model: args.profile.model,
         timeout: this.vlmTimeoutMs,
       },
+      systemPrompt,
       logger: this.logger,
       maxLoopCount: this.maxLoopCount,
       onData: ({ data }) => args.onStep(data),
