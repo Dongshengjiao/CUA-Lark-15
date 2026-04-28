@@ -101,10 +101,10 @@ final class WebAgentRunnerSupervisor {
             return
         }
 
-        let nodeURL = locator.locateNode()
         let proc = Process()
-        proc.executableURL = nodeURL
-        proc.arguments = [scriptURL.path]
+        let invocation = locator.invocation(for: scriptURL)
+        proc.executableURL = invocation.executable
+        proc.arguments = invocation.arguments
 
         var env = ProcessInfo.processInfo.environment
         if let apiKey = apiKeyProvider(), !apiKey.isEmpty {
@@ -262,17 +262,36 @@ struct RunnerLocator: Sendable {
         return nil
     }
 
-    /// Resolve `node` (or `npx tsx` for `.ts` source) executable path.
-    /// Falls back to `/usr/local/bin/node` then `/opt/homebrew/bin/node`.
-    func locateNode() -> URL {
-        let candidates = [
+    /// Resolve the full invocation for the runner script. `.ts` source
+    /// is spawned via `<runners-dir>/node_modules/.bin/tsx` (which the
+    /// `npm install` already produces at the package root), or as a
+    /// last resort via `npx tsx`. `.js` source is spawned with `node`.
+    func invocation(for script: URL) -> (executable: URL, arguments: [String]) {
+        if script.pathExtension == "ts" {
+            // Try the package's local tsx binary first — it is the
+            // exact version `runners/web-agent` already verified.
+            let pkgRoot = script
+                .deletingLastPathComponent() // src
+                .deletingLastPathComponent() // web-agent
+            let localTsx = pkgRoot
+                .appendingPathComponent("node_modules")
+                .appendingPathComponent(".bin")
+                .appendingPathComponent("tsx")
+            if FileManager.default.fileExists(atPath: localTsx.path) {
+                return (localTsx, [script.path])
+            }
+            // Fallback: rely on the user's PATH for npx.
+            return (URL(fileURLWithPath: "/usr/bin/env"), ["npx", "tsx", script.path])
+        }
+
+        let nodeCandidates = [
             "/opt/homebrew/bin/node",
             "/usr/local/bin/node",
             "/usr/bin/node",
         ]
-        for path in candidates where FileManager.default.fileExists(atPath: path) {
-            return URL(fileURLWithPath: path)
+        for path in nodeCandidates where FileManager.default.fileExists(atPath: path) {
+            return (URL(fileURLWithPath: path), [script.path])
         }
-        return URL(fileURLWithPath: "/usr/bin/env")
+        return (URL(fileURLWithPath: "/usr/bin/env"), ["node", script.path])
     }
 }

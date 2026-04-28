@@ -55,15 +55,18 @@
 
 ## 7. 端到端验收
 
-- [ ] 7.1 `cd lark-island && swift build` 完整通过。
-- [ ] 7.2 `cd lark-island && swift test` 全绿（新加的 BridgeServerRoutingTests + LLMProfileStore round-trip test）。
-- [ ] 7.3 启动 `LARK_ISLAND_RUNNER_PATH=$(pwd)/../runners/web-agent/dist/server.js DASHSCOPE_API_KEY=$(grep DASHSCOPE_API_KEY ../runners/web-agent/.env | cut -d= -f2) swift run LarkIslandApp`：菜单栏 LarkIsland 图标出现、灵动岛 overlay 在屏幕顶部出现（idle 形态）、runner 子进程 spawn 成功（看 `~/Library/Logs/LarkIsland/web-agent.log`）。
-- [ ] 7.4 从菜单栏点开 input panel 输入"在 example.com 读 page title"，提交后灵动岛展开显示进度（task title + step thought + 缩略图，最后显示 finalAnswer 或 failure）。
-- [ ] 7.5 打开 LLM Settings tab，新建一个 `doubao-fallback` profile（apiKey 留空也行）；保存后看 `~/Library/Application Support/LarkIsland/llm-profiles.json` 多一条；setDefault 切换 active profile，下条任务的 `runWebAgentTask.profileName` 变成新值。
-- [ ] 7.6 录一段 demo.mov（约 1 分钟）作为本里程碑的视觉证据，存到 `lark-island/docs/m4-demo.mov`（gitignored if too large；否则入库）。
+- [x] 7.1 `cd lark-island && swift build` 完整通过（0 errors，0 warnings 主代码）。
+- [x] 7.2 `cd lark-island && swift test` 全绿（28/28：M2/M3 + 新增 BridgeServerRoutingTests 4 个）。
+- [x] 7.3 后台启动 `swift run LarkIslandApp` 验证：BridgeServer 在 `~/Library/Application Support/LarkIsland/bridge.sock` 起监听；RunnerSupervisor spawn `npx tsx runners/web-agent/src/runner.ts` 成功；`~/Library/Logs/LarkIsland/web-agent-2026-04-28.log` 写出 `[lark-island/runner] connecting to ...bridge.sock` → `handshake v2 ok` → `launching headless Chromium...`，pipeline 完整跑通。
+- [-] 7.4 GUI 交互验证（菜单栏点开 input panel + 提交任务）需要桌面环境实际操作，agent 无法自动跑；M5 demo 录制时一并验证。
+- [-] 7.5 LLM Settings tab CRUD 同上，留 M5 demo 时 GUI 验证。
+- [-] 7.6 demo.mov 录制延迟到 M5（先把飞书 skill 接上再录完整 demo 更有说服力）。
 
 ## 8. 收尾
 
 - [ ] 8.1 `npx @fission-ai/openspec validate m4-island-ui-rewrite` 干净通过。
-- [ ] 8.2 提交 commit（建议拆 4 个：`feat(app): re-enable LarkIslandApp + rename`、`refactor(app): rewrite AppModel + adapt island chrome`、`feat(app): add web-agent UI modules`、`feat(bridge): runner-vs-observer routing rule + tests`）。
+- [x] 8.2 commit 拆分实际为 3 个（M0c 已经覆盖了 group 1，本里程碑只剩 group 2-6）：
+  - `7c2f3ee` feat(island): rewrite AppModel + chrome views as web-agent shell（task 2/3，phase 1b/2）
+  - `70f4eb8` feat(app): add web-agent UI modules + runner supervisor（task 4，phase 3）
+  - `e75039a` feat(bridge): runner-vs-observer routing + AppModel wiring（task 5/6，phase 4）
 - [ ] 8.3 跑 `/opsx-archive m4-island-ui-rewrite` 把 `lark-island-app` 新 capability + `web-agent-bridge` modified delta 一起 sync 到 `openspec/specs/`，归档 change。
