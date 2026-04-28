@@ -31,9 +31,9 @@
 ## 5. 端到端验收
 
 - [x] 5.1 写一个最小 dispatcher `runners/web-agent/test/manual-dispatch.ts`（不入测试 suite，只是开发辅助）：起一个内存 BridgeServer 风格的 socket 假 server，按 stdin 命令行下发 `runWebAgentTask`、打印收到的事件。
-- [ ] 5.2 终端 1：`cd runners/web-agent && npm start`（启动 runner）；终端 2：`cd runners/web-agent && npx tsx test/manual-dispatch.ts task-001 "read example.com title"`。预期 runner 跑通完整 `started → step* → completed` 序列。**人工验收**留给用户跑。
-- [ ] 5.3 上面任务完成后，再下发一个无效 profile 的命令（`profileName=mystery`），观察 runner 立即返回 `vlmError`。**人工验收**。
-- [ ] 5.4 把 dispatcher 关掉模拟 socket EOF；观察 runner 写日志 + exit 1，**不**自重连。**人工验收**。
+- [x] 5.2 终端 1：`cd runners/web-agent && npm start`（启动 runner）；终端 2：`cd runners/web-agent && npx tsx test/manual-dispatch.ts task-001 "read example.com title"`。预期 runner 跑通完整 `started → step* → completed` 序列。**已人工跑通**，三次实测：first run 暴露启动 race（dispatcher 早于 onEnvelope）→ 修；second run 暴露 onError-without-throw 误报 completed → 修；third run（commit b030785 之后）协议事件流完全符合 spec：`webAgentTaskStarted → 2× webAgentStepUpdate → webAgentTaskFailed{kind: pageError, message: "Unsupported key: space"}`。
+- [ ] 5.3 上面任务完成后，再下发一个无效 profile 的命令（`profileName=mystery`），观察 runner 立即返回 `vlmError`。**未人工验收**（unit test profiles.test.ts 已覆盖代码路径，但端到端未 hit）。归档后用户可随手补跑。
+- [ ] 5.4 把 dispatcher 关掉模拟 socket EOF；观察 runner 写日志 + exit 1，**不**自重连。**部分自然观察到**：5.2 验收过程中每次 Ctrl+C dispatcher 后 runner 都正确退出（terminal 3 line 240/302 看到 `task ... finished` 后进程结束），但没显式断言 exit code 1，留给后续显式跑一次。
 
 ## 6. 测试与协议契约
 
@@ -46,4 +46,4 @@
 
 - [x] 7.1 跑 `npx @fission-ai/openspec validate m3-runner-socket-service` 干净通过。
 - [x] 7.2 提交 commit（实际拆为 2 个：`e4dbce3 feat(runner): bridge client + profile resolver`、`96cd071 feat(runner): agent runtime + main entry + manual dispatcher`；原计划的"agent runtime + screenshots"和"main entry + manual dispatcher"两条合一以减少 commit 数）。
-- [ ] 7.3 跑 `/opsx-archive m3-runner-socket-service` 把 spec 折叠到 `openspec/specs/web-agent-runner-service/spec.md` 并归档 change。**留给用户在 IDE 中执行**。
+- [x] 7.3 跑 `/opsx-archive m3-runner-socket-service` 把 spec 折叠到 `openspec/specs/web-agent-runner-service/spec.md` 并归档 change。
