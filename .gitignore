@@ -49,6 +49,9 @@ demo/raw/
 .cursor/projects/
 agent-tools/
 
+# Claude Code user-local settings (per-user permission allowlist; not for sharing)
+.claude/settings.local.json
+
 # bench 临时数据
 bench/output/
 bench/cache/
