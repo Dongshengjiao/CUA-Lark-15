@@ -83,8 +83,17 @@ final class LarkIslandAppDelegate: NSObject, NSApplicationDelegate {
             popover.performClose(sender)
             return
         }
+        // Bring the app to the front so the popover's host window
+        // doesn't get buried behind whichever IDE / browser is active
+        // (default NSPopover hosts at .floating which loses to apps
+        // that hold the active window). Activating + bumping the level
+        // to popUpMenu keeps the input panel above everything except
+        // system menus.
+        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        // The hosting controller is created at install time with an
-        // AppModel snapshot; nothing to refresh here for v0.
+        if let popoverWindow = popover.contentViewController?.view.window {
+            popoverWindow.level = .popUpMenu
+            popoverWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        }
     }
 }

@@ -16,6 +16,12 @@ struct IslandPanelView: View {
     let model: AppModel
 
     var body: some View {
+        // The hosting NSPanel spans the full screen width (so opened-state
+        // task cards can use the resolved content width), but the visible
+        // chrome should be horizontally centered over the notch area and
+        // pinned to the screen top. Without `.frame(.., alignment: .top)`
+        // SwiftUI lays out from the leading-top corner of the hosting
+        // view and the pill drifts left of center.
         Group {
             switch model.notchStatus {
             case .closed:
@@ -26,6 +32,7 @@ struct IslandPanelView: View {
                 ClosedIslandView(model: model)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.spring(response: 0.32, dampingFraction: 0.85), value: model.notchStatus)
     }
 }
@@ -48,12 +55,20 @@ private struct ClosedIslandView: View {
             } else {
                 Text("Lark Island")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.white.opacity(0.78))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 240)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(
+            // Black capsule visually merges with the notch so the
+            // closed-state pill reads as one continuous "island"
+            // hanging from the menu bar.
+            Capsule(style: .continuous)
+                .fill(Color.black)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 6, y: 1)
+        .fixedSize()
     }
 
     @ViewBuilder

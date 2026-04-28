@@ -187,6 +187,12 @@ final class AppModel {
         runnerSupervisor.start()
         overlay.appModel = self
         overlay.restoreDisplayPreference()
+        // Without this, the NSPanel that hosts IslandPanelView is never
+        // created, so nothing is drawn on the screen even though the
+        // app is running. ensureOverlayPanel() creates the panel,
+        // positions it on the resolved screen, and orderFrontRegardless()
+        // makes it visible in its closed (idle pill) state.
+        overlay.ensureOverlayPanel()
     }
 
     func shutdown() {
