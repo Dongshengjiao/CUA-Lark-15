@@ -353,10 +353,27 @@ private struct OpenedTaskBody: View {
             }
 
             if let req = session.permissionRequest {
-                Label(req.summary, systemImage: "lock.shield")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .lineLimit(2)
+                if req.title == "login_qr" {
+                    // M5: skill login QR scan in progress. Show a
+                    // dedicated orange "扫码" prompt row + helper text
+                    // so the user immediately knows where to look.
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label(req.summary, systemImage: "qrcode.viewfinder")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.orange)
+                            .lineLimit(2)
+                        Text("已在浏览器中打开登录页面，扫码后会自动继续")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(2)
+                    }
+                } else {
+                    // Generic approval (M5+ skills may add more kinds).
+                    Label(req.summary, systemImage: "lock.shield")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
+                }
             }
 
             if let q = session.questionPrompt {

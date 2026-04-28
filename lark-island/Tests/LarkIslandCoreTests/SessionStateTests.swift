@@ -73,6 +73,64 @@ struct SessionStateTests {
         #expect(session?.permissionRequest == request)
     }
 
+    @Test("webAgentApprovalRequested(login_qr) transitions to waitingForApproval and surfaces kind in permissionRequest")
+    func webAgentApprovalRequestedLoginQR() {
+        var state = SessionState()
+        let started = WebAgentTaskStarted(
+            taskID: "t1",
+            prompt: "给张三发条飞书消息",
+            skill: "feishu_im_send",
+            profileName: "qwen-default",
+            timestamp: now
+        )
+        state.apply(.webAgentTaskStarted(started))
+
+        state.apply(.webAgentApprovalRequested(WebAgentApprovalRequested(
+            taskID: "t1",
+            kind: "login_qr",
+            message: "请扫码登录飞书",
+            timestamp: now.addingTimeInterval(2)
+        )))
+
+        let session = state.session(id: "t1")
+        #expect(session?.phase == .waitingForApproval)
+        #expect(session?.permissionRequest?.title == "login_qr")
+        #expect(session?.permissionRequest?.summary == "请扫码登录飞书")
+        #expect(session?.summary == "请扫码登录飞书")
+    }
+
+    @Test("subsequent webAgentStepUpdate after login_qr restores running phase and clears permissionRequest")
+    func webAgentApprovalThenStepUpdate() {
+        var state = SessionState()
+        state.apply(.webAgentTaskStarted(WebAgentTaskStarted(
+            taskID: "t1",
+            prompt: "p",
+            skill: "feishu_im_send",
+            profileName: "qwen-default",
+            timestamp: now
+        )))
+        state.apply(.webAgentApprovalRequested(WebAgentApprovalRequested(
+            taskID: "t1", kind: "login_qr", message: "请扫码", timestamp: now.addingTimeInterval(1)
+        )))
+
+        // Simulate runner finishing the QR flow and emitting the first step.
+        state.apply(.webAgentStepUpdate(WebAgentStepUpdate(
+            taskID: "t1",
+            stepIndex: 0,
+            thought: "search for contact",
+            actionRaw: "click(...)",
+            actionType: "click",
+            screenshotURL: nil,
+            costMs: 1000,
+            costTokens: nil,
+            timestamp: now.addingTimeInterval(60)
+        )))
+
+        let session = state.session(id: "t1")
+        #expect(session?.phase == .running)
+        #expect(session?.permissionRequest == nil)
+    }
+
     @Test("questionAsked transitions to waitingForAnswer and stores prompt")
     func questionAsked() {
         var state = SessionState()

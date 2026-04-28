@@ -187,6 +187,15 @@ public struct SessionState: Equatable, Sendable {
             let actionLabel = payload.actionType ?? "thinking"
             session.summary = "step \(payload.stepIndex) · \(actionLabel) · \(trimmed)"
             session.updatedAt = payload.timestamp
+            // M5: any forward progress event clears prior approval/question
+            // gates and snaps the session back to running. Without this the
+            // QR-scan UI would be stuck on .waitingForApproval forever even
+            // after the runner resumed GUIAgent steps.
+            if session.phase == .waitingForApproval || session.phase == .waitingForAnswer {
+                session.phase = .running
+                session.permissionRequest = nil
+                session.questionPrompt = nil
+            }
             upsert(session)
 
         case let .webAgentApprovalRequested(payload):
