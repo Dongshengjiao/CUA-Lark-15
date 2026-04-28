@@ -274,6 +274,12 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
     public var questionPrompt: QuestionPrompt?
     public var jumpTarget: JumpTarget?
 
+    /// M6: absolute file path of the most recent webAgentStepUpdate
+    /// screenshot for this session. The island UI renders it as a
+    /// small live thumbnail in the opened state. nil for sessions that
+    /// haven't reported a screenshot yet.
+    public var latestScreenshotURL: String?
+
     /// Whether this session originates from a remote (SSH) connection.
     public var isRemote: Bool = false
 
@@ -289,6 +295,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         permissionRequest: PermissionRequest? = nil,
         questionPrompt: QuestionPrompt? = nil,
         jumpTarget: JumpTarget? = nil,
+        latestScreenshotURL: String? = nil,
         isRemote: Bool = false
     ) {
         self.id = id
@@ -302,6 +309,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         self.permissionRequest = permissionRequest
         self.questionPrompt = questionPrompt
         self.jumpTarget = jumpTarget
+        self.latestScreenshotURL = latestScreenshotURL
         self.isRemote = isRemote
     }
 }

@@ -99,6 +99,50 @@ struct SessionStateTests {
         #expect(session?.summary == "请扫码登录飞书")
     }
 
+    @Test("webAgentStepUpdate stores screenshotURL into session.latestScreenshotURL")
+    func webAgentStepUpdateScreenshotPath() {
+        var state = SessionState()
+        state.apply(.webAgentTaskStarted(WebAgentTaskStarted(
+            taskID: "t1", prompt: "p", skill: nil, profileName: "qwen-default", timestamp: now
+        )))
+        let path = "/tmp/lark-island-screenshots/t1/0.jpg"
+        state.apply(.webAgentStepUpdate(WebAgentStepUpdate(
+            taskID: "t1",
+            stepIndex: 0,
+            thought: "looking at the page",
+            actionRaw: "click(...)",
+            actionType: "click",
+            screenshotURL: path,
+            costMs: 100,
+            costTokens: nil,
+            timestamp: now.addingTimeInterval(1)
+        )))
+        let session = state.session(id: "t1")
+        #expect(session?.latestScreenshotURL == path)
+    }
+
+    @Test("webAgentStepUpdate without screenshotURL leaves prior latestScreenshotURL untouched")
+    func webAgentStepUpdateNilScreenshotPreservesPrior() {
+        var state = SessionState()
+        state.apply(.webAgentTaskStarted(WebAgentTaskStarted(
+            taskID: "t1", prompt: "p", skill: nil, profileName: "qwen-default", timestamp: now
+        )))
+        // step 0 has a screenshot.
+        state.apply(.webAgentStepUpdate(WebAgentStepUpdate(
+            taskID: "t1", stepIndex: 0, thought: "a", actionRaw: nil, actionType: nil,
+            screenshotURL: "/tmp/0.jpg", costMs: nil, costTokens: nil, timestamp: now
+        )))
+        // step 1 does NOT have a screenshot — the latest path must be preserved
+        // so the island UI keeps showing the most recent thumbnail rather than
+        // flickering blank.
+        state.apply(.webAgentStepUpdate(WebAgentStepUpdate(
+            taskID: "t1", stepIndex: 1, thought: "b", actionRaw: nil, actionType: nil,
+            screenshotURL: nil, costMs: nil, costTokens: nil, timestamp: now.addingTimeInterval(1)
+        )))
+        let session = state.session(id: "t1")
+        #expect(session?.latestScreenshotURL == "/tmp/0.jpg")
+    }
+
     @Test("subsequent webAgentStepUpdate after login_qr restores running phase and clears permissionRequest")
     func webAgentApprovalThenStepUpdate() {
         var state = SessionState()

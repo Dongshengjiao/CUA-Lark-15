@@ -5,6 +5,8 @@
 // the simplified Capsule/NotchShape variants the M4 minimal rewrite
 // shipped — the chrome was always meant to be used with this layout.
 
+import AppKit
+import Foundation
 import LarkIslandCore
 import SwiftUI
 
@@ -345,11 +347,48 @@ private struct OpenedTaskBody: View {
                 .foregroundStyle(.white)
                 .lineLimit(2)
 
+            // M6 task 3.3: live screenshot thumbnail. We pull the file
+            // off disk lazily via NSImage(byReferencingFile:); SwiftUI's
+            // .id(path) trick makes it re-render on every step.
+            if let path = session.latestScreenshotURL,
+               !path.isEmpty,
+               FileManager.default.fileExists(atPath: path),
+               let image = NSImage(byReferencingFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.medium)
+                    .scaledToFit()
+                    .frame(maxWidth: 120, maxHeight: 90, alignment: .leading)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    )
+                    .id(path) // re-render on every step's screenshot path change
+                    .transition(.opacity)
+                    .animation(.easeOut(duration: 0.2), value: path)
+            }
+
+            // M6 task 3.4: render the final answer with markdown when
+            // the task has completed. SwiftUI's Text natively parses
+            // markdown via LocalizedStringKey (bold / italic / code /
+            // link); good enough for the GUIAgent finalAnswer prose.
+            // Step summaries (running phase) stay as plain Text since
+            // they're internal "step N · ..." strings authored by the
+            // reducer, not user-facing prose.
             if !session.summary.isEmpty {
-                Text(session.summary)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.78))
-                    .lineLimit(3)
+                if session.phase == .completed {
+                    Text(LocalizedStringKey(session.summary))
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(session.summary)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .lineLimit(3)
+                }
             }
 
             if let req = session.permissionRequest {
