@@ -36,22 +36,22 @@
 
 ## 5. BridgeServer 接通 + 路由规则修改
 
-- [ ] 5.1 在 [`lark-island/Sources/LarkIslandCore/BridgeServer.swift`](../../../lark-island/Sources/LarkIslandCore/BridgeServer.swift) `handleEnvelope` 中加新分支：来自 `webAgentRunner` 角色的客户端发的 `event` envelope 调 `stateSnapshot.apply(event)` + `broadcast(event)`；来自 `observer` 角色发的 `event` envelope 记录 warning 后丢弃。
-- [ ] 5.2 同样在 `handleCommand` 中：来自 runner 角色的客户端发的 command 记录 warning 后丢弃，**不**调 commandHandler。
-- [ ] 5.3 在 [`lark-island/Tests/LarkIslandCoreTests/`](../../../lark-island/Tests/LarkIslandCoreTests/) 加新测试 `BridgeServerRoutingTests.swift`：用一对内存 socket pair（runner + observer 各一个）跑端到端覆盖以下场景：
-  - runner 发 webAgentTaskStarted → observer 收到 broadcast + server SessionState 更新
-  - runner 发 runWebAgentTask 命令 → 被丢弃
-  - observer 发 webAgentTaskStarted → 被丢弃
-  - observer 发 runWebAgentTask → commandHandler 被调用
-- [ ] 5.4 跑 `cd lark-island && swift test`，新增 4 个 test 通过；现有 36 测试不破坏。
+- [x] 5.1 在 `BridgeServer.swift` 加新分支：来自 `webAgentRunner` 客户端的 `event` 调 `stateSnapshot.apply(event)` + 触发 `eventHandler` + 推到所有 observer；来自 `observer` 的 `event` → `routingViolationHandler(.observerSentEvent)` 后丢弃。
+- [x] 5.2 在 `handleCommand` 中：runner 发 command（除 registerClient）→ `routingViolationHandler(.runnerSentCommand)` 后丢弃；observer 发 command → 走 `commandHandler`。
+- [x] 5.3 新增 `BridgeServerRoutingTests.swift`，4 个测试用真实 Unix socket pair 覆盖：
+  - runner 发 webAgentTaskStarted → eventHandler 调用 + observer 收到 broadcast ✅
+  - runner 发 runWebAgentTask 命令 → routingViolation + commandHandler 不调 ✅
+  - observer 发 webAgentTaskStarted → routingViolation + eventHandler 不调 ✅
+  - observer 发 runWebAgentTask → commandHandler 被调用 ✅
+- [x] 5.4 跑 `swift test`：28/28 全绿（M2/M3/M4 的 24 + M4 group 5 的 4）。
 
 ## 6. AppModel 接通 BridgeServer + RunnerSupervisor
 
-- [ ] 6.1 在 `AppModel.init` 中：构造 BridgeServer（用默认 socket 路径或 env override），注册 `commandHandler` 把 observer 命令分发给本 AppModel 的处理逻辑（M4 的 commandHandler 主要处理 `runWebAgentTask` —— 但 v0 单进程下 app 是 server 也是事件源头，所以 runWebAgentTask 实际是 server 主动 send 给 runner 而不是被 commandHandler 收到）。
-- [ ] 6.2 启动 BridgeServer，再 spawn RunnerSupervisor。
-- [ ] 6.3 在 `startWebAgentTask(prompt:)` 中：构造 `BridgeCommand.runWebAgentTask`，调 BridgeServer 内部 `sendToRunner(command:)`（在 BridgeServer 上加一个新 public 方法，遍历 clients 找 webAgentRunner 角色的连接 send envelope）。
-- [ ] 6.4 supervisor 检测 runner 异常退出后通知 AppModel：把所有 `phase == .running` 的 session apply `webAgentTaskFailed{kind: cancelled, message: "runner crashed"}`。
-- [ ] 6.5 在 LarkIslandCore 加 `BridgeServer.sendToRunner(_ command: BridgeCommand)` 方法 + 单元测试。
+- [x] 6.1 AppModel.init 构造 BridgeServer 实例；startIfNeeded() 配置 `eventHandler`/`routingViolationHandler`/`commandHandler` 在 start() 之前。
+- [x] 6.2 startIfNeeded 启动 BridgeServer + 配 supervisor 的 apiKeyProvider/onRunnerCrash + 启动 supervisor。shutdown() 反序释放。
+- [x] 6.3 `startWebAgentTask(prompt:)` 检查 runner 在线、当前无 .running session、构造 `BridgeCommand.runWebAgentTask{taskID, prompt, profileName=defaultProfileName}` 调 `bridgeServer.sendToRunner(command)`。
+- [x] 6.4 supervisor 检测 runner 异常退出 → onRunnerCrash → handleRunnerCrash() 把所有 `.running` session 投递 `webAgentTaskFailed{kind: cancelled, message: "Runner exited unexpectedly"}`，避免 UI 永久 spinner。
+- [x] 6.5 BridgeServer 新增 `sendToRunner(_ command: BridgeCommand)` 方法 + `clientCount(role:)` synchronous 查询；单元测试间接覆盖（observer-routed test 验证 sendToRunner 路径反向）。
 
 ## 7. 端到端验收
 

@@ -9,6 +9,21 @@ import Foundation
 
 public final class BridgeServer: @unchecked Sendable {
     public typealias CommandHandler = @Sendable (BridgeCommand) -> Void
+    public typealias EventHandler = @Sendable (AgentEvent) -> Void
+
+    /// Reasons a client envelope can be rejected by the server's
+    /// role-based routing rule (M4 group 5).
+    public enum RoutingViolation: Equatable, Sendable {
+        /// `webAgentRunner` clients are not allowed to send commands.
+        case runnerSentCommand
+        /// `observer` clients are not allowed to be event sources.
+        case observerSentEvent
+        /// Envelope arrived before the client identified itself with
+        /// `BridgeCommand.registerClient(role:)`.
+        case envelopeBeforeRegister
+    }
+
+    public typealias RoutingViolationHandler = @Sendable (RoutingViolation) -> Void
 
     private struct ClientConnection {
         let id: UUID
@@ -35,6 +50,16 @@ public final class BridgeServer: @unchecked Sendable {
     /// Called on the bridge queue whenever a client sends a command.
     /// Set this from AppModel before calling `start()`.
     public var commandHandler: CommandHandler?
+
+    /// Called on the bridge queue whenever a `webAgentRunner` client
+    /// emits an event. AppModel uses this to apply the event to its own
+    /// SessionState so SwiftUI re-renders. Set before `start()`.
+    public var eventHandler: EventHandler?
+
+    /// Called on the bridge queue whenever a client violates the
+    /// runner-vs-observer routing rule (M4 group 5). Used by tests + by
+    /// the AppModel to log warnings. Set before `start()`.
+    public var routingViolationHandler: RoutingViolationHandler?
 
     public init(socketURL: URL = BridgeSocketLocation.defaultURL) {
         self.socketURL = socketURL
@@ -87,6 +112,29 @@ public final class BridgeServer: @unchecked Sendable {
             for client in clients.values where client.role == .observer {
                 writeEnvelope(envelope, to: client.fileDescriptor)
             }
+        }
+    }
+
+    /// Send a command to the registered `webAgentRunner` client.
+    /// Returns true (asynchronously) if at least one runner connection
+    /// exists; the actual write happens on the bridge queue.
+    /// Used by AppModel.startWebAgentTask to dispatch tasks to the
+    /// runner subprocess.
+    public func sendToRunner(_ command: BridgeCommand) {
+        queue.async { [self] in
+            let envelope = BridgeEnvelope.command(command)
+            for client in clients.values where client.role == .webAgentRunner {
+                writeEnvelope(envelope, to: client.fileDescriptor)
+            }
+        }
+    }
+
+    /// Number of currently-connected clients with the given role.
+    /// Synchronous + thread-safe; safe to call from any queue. Used by
+    /// AppModel + tests to determine whether a runner is connected.
+    public func clientCount(role: BridgeClientRole) -> Int {
+        queue.sync {
+            clients.values.filter { $0.role == role }.count
         }
     }
 
@@ -245,17 +293,63 @@ public final class BridgeServer: @unchecked Sendable {
             return  // Server-only message; ignore from clients.
         case let .command(command):
             handleCommand(command, fromClient: id)
-        case .event, .response:
+        case let .event(event):
+            handleEvent(event, fromClient: id)
+        case .response:
             return
         }
     }
 
     private func handleCommand(_ command: BridgeCommand, fromClient id: UUID) {
-        switch command {
-        case let .registerClient(role):
-            clients[id]?.role = role
-        case .requestQuestion, .resolvePermission, .answerQuestion, .runWebAgentTask:
+        // M4 group 5 routing rule: only `observer` clients may issue
+        // commands. `webAgentRunner` clients should never send commands;
+        // they only emit events. Warn + drop. `registerClient` is the
+        // one exception (every client must register).
+        let role = clients[id]?.role
+        if case .registerClient(let newRole) = command {
+            clients[id]?.role = newRole
+            return
+        }
+
+        guard let role else {
+            routingViolationHandler?(.envelopeBeforeRegister)
+            return
+        }
+
+        switch role {
+        case .observer:
             commandHandler?(command)
+        case .webAgentRunner:
+            routingViolationHandler?(.runnerSentCommand)
+            return
+        }
+    }
+
+    private func handleEvent(_ event: AgentEvent, fromClient id: UUID) {
+        // M4 group 5 routing rule: only `webAgentRunner` clients may
+        // emit events. Events from observers (or unregistered clients)
+        // are dropped with a warning.
+        guard let role = clients[id]?.role else {
+            routingViolationHandler?(.envelopeBeforeRegister)
+            return
+        }
+        switch role {
+        case .webAgentRunner:
+            // Maintain server-side reducer snapshot (used by future
+            // multi-observer scenarios + tests).
+            stateSnapshot.apply(event)
+
+            // Fan out to AppModel's own state.
+            eventHandler?(event)
+
+            // Fan out to every observer client.
+            let envelope = BridgeEnvelope.event(event)
+            for client in clients.values where client.role == .observer {
+                writeEnvelope(envelope, to: client.fileDescriptor)
+            }
+        case .observer:
+            routingViolationHandler?(.observerSentEvent)
+            return
         }
     }
 

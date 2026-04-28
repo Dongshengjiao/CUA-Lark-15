@@ -157,6 +157,17 @@ final class AppModel {
     /// Start BridgeServer + spawn runner. Called from the AppDelegate
     /// after applicationDidFinishLaunching.
     func startIfNeeded() {
+        // Wire BridgeServer event/command/violation handlers BEFORE
+        // start() so we don't miss the runner's first envelope.
+        bridgeServer.eventHandler = { [weak self] event in
+            Task { @MainActor [weak self] in
+                self?.handleRunnerEvent(event)
+            }
+        }
+        bridgeServer.routingViolationHandler = { violation in
+            print("[bridge] routing violation: \(violation)")
+        }
+
         do {
             try bridgeServer.start()
         } catch {
@@ -204,15 +215,55 @@ final class AppModel {
     // MARK: - Web-agent commands (group 6 fully wires these)
 
     func startWebAgentTask(prompt: String) {
-        guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        // Group 6 will implement: build BridgeCommand.runWebAgentTask
-        // and bridgeServer.sendToRunner(command). Stubbed here so
-        // group 4 UIs compile and call into a no-op.
-        lastErrorMessage = "startWebAgentTask: not yet wired (group 6)"
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        // v0 single-task serial guard: refuse to dispatch when one is
+        // already running. UI can offer a cancel later (M5).
+        if let active = state.sessions.first(where: { $0.phase == .running }) {
+            lastErrorMessage = "Task '\(active.title)' is still running."
+            return
+        }
+
+        guard bridgeServer.clientCount(role: .webAgentRunner) > 0 else {
+            lastErrorMessage = "Runner not connected. Check ~/Library/Logs/LarkIsland."
+            return
+        }
+
+        let taskID = UUID().uuidString
+        let command = BridgeCommand.runWebAgentTask(
+            taskID: taskID,
+            prompt: trimmed,
+            skill: nil,
+            profileName: profileStore.defaultProfileName
+        )
+        bridgeServer.sendToRunner(command)
+        lastErrorMessage = nil
     }
 
     func cancelCurrentTask() {
-        // Group 6 + M5 cancel command.
+        // M5+ cancel command. v0 leaves runner to finish or crash.
+    }
+
+    /// Apply a runner-emitted event to our SessionState reducer so the
+    /// UI re-renders. Called from BridgeServer.eventHandler on the
+    /// MainActor.
+    private func handleRunnerEvent(_ event: AgentEvent) {
+        state.apply(event)
+        // Drop completed sessions after a fade window (D6: 8 seconds).
+        if case .webAgentTaskCompleted = event {
+            scheduleSessionCleanup()
+        }
+        if case .webAgentTaskFailed = event {
+            scheduleSessionCleanup()
+        }
+    }
+
+    private func scheduleSessionCleanup() {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 8 * 1_000_000_000)
+            _ = self?.state.removeInvisibleSessions()
+        }
     }
 
     // MARK: - Island chrome forwarders (called by OverlayPanelController)
