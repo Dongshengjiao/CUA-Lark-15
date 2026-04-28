@@ -8,41 +8,68 @@
 import type { Skill } from './types.js';
 
 const systemPromptAddendum = `
-You are now operating inside the Feishu (Lark) web app at https://www.feishu.cn/messenger/.
-The app is a React SPA; UI elements are rendered as <div> with custom data-* attrs,
-not native form controls. Click coordinates for interactive elements typically have
-width 40-400 px and height 30-80 px. AVOID clicking near (0,0) — that is the empty
-top-left corner.
+You are operating inside the Feishu (Lark) web app at https://www.feishu.cn/messenger/.
+The app is a React SPA; interactive controls are <div> with custom data-* attrs.
+Click target widths are typically 40-400 px and heights 30-80 px.
 
-Conventional flow to send a chat message:
-  1. If the conversation list (left rail) is empty or no target conversation is
-     visible, open the global search by clicking the magnifier icon at the top-left
-     (around x≈80, y≈70).
-  2. Type the contact / group name in the search box. Press Enter or click the first
-     matching result in the dropdown.
-  3. Once the conversation opens, click the message composer at the bottom.
-  4. Type the message body verbatim.
-  5. Send by pressing Cmd+Enter (preferred) or by clicking the "发送" / "Send" button
-     at the bottom-right of the composer.
-  6. After the message bubble appears in the conversation, call the final answer
-     with a short confirmation including the recipient and the message snippet.
+## IMPORTANT — DO NOT CLICK THE GLOBAL SEARCH BAR
 
-Few-shot example:
-  Prompt: "给张三发条飞书消息：明天下午3点开会"
-  Steps:
-    - thought: 打开飞书 IM 搜索框查找张三
-    - click(start_box='[80,70]')
-    - thought: 输入张三搜索
-    - type(content='张三')
-    - thought: 选择搜索结果中的张三
-    - click(start_box='[160,140]')
-    - thought: 在消息输入框点击
-    - click(start_box='[400,720]')
-    - thought: 输入消息内容
-    - type(content='明天下午3点开会')
-    - thought: 通过 Cmd+Enter 发送
-    - hotkey(key='cmd enter')
-    - finished('已通过飞书发送给张三：明天下午3点开会')
+Feishu has TWO search inputs that look similar but behave very differently:
+
+1. **The dark wide bar across the top** of the Chromium tab area (placeholder
+   often "搜索全部内容..." / "问你想问的问题..." / contains "⌘+K"). This is
+   the global Cmd+K omni-search that returns apps / docs / mail. **NEVER
+   click this bar to send a message — it can never lead to a chat composer.**
+2. **The lighter conversation search field** sitting in the LEFT panel just
+   below the "消息" header (placeholder "搜索 (⌘+K)"). This is the message-
+   conversation search and is the correct entry point.
+
+If you see the dark global bar appear, immediately click anywhere outside it
+or press Esc to dismiss, then locate the conversation search in the left panel.
+
+## CONVENTIONAL FLOW (self-chat or contact)
+
+  1. In the LEFT panel, click the conversation search field (light, near the
+     top of the conversation list, just below "消息" + "+" buttons).
+  2. Type the recipient (e.g. their name or "梓文" — your own name fragment
+     for self-chat).
+  3. Click the FIRST matching contact/conversation result in the dropdown.
+  4. The chat opens on the right. Click into the message composer at the
+     bottom (typical y ≈ 720-760 on a 1280x800 viewport).
+  5. Type the message text verbatim.
+  6. Send with Cmd+Enter (preferred) or click the "发送" button.
+
+## COMPLETION SIGNAL — call finished() AS SOON AS THIS HAPPENS
+
+You will see your just-typed message appear as a colored bubble (typically
+blue or brand-colored) on the RIGHT side of the conversation window with a
+timestamp. The composer empties out. THE INSTANT you see that bubble:
+
+    finished('已通过飞书向 <收件人> 发送：<消息内容>')
+
+Do NOT scroll, do NOT confirm, do NOT take more screenshots "to be sure" —
+those extra loops will trigger max_loop and FAIL the task. Send → see bubble
+→ finished(). That's it.
+
+## FEW-SHOT (self-chat)
+
+Prompt: "在飞书给自己发条消息：hello demo"
+
+Steps:
+  - thought: 在左侧消息列表上方点击会话搜索框（不是顶部那条全局搜索栏）
+  - click(start_box='[60,135]')   # 左侧会话搜索
+  - thought: 输入自己用户名片段
+  - type(content='梓文')
+  - thought: 点击第一个搜索结果（自己的自聊条目）
+  - click(start_box='[180,265]')
+  - thought: 在底部消息输入框点击
+  - click(start_box='[700,720]')
+  - thought: 输入消息正文
+  - type(content='hello demo')
+  - thought: 用 Cmd+Enter 发送
+  - hotkey(key='cmd enter')
+  - thought: 看到右侧出现新蓝色气泡，任务完成
+  - finished('已通过飞书发送给自己：hello demo')
 `;
 
 export const feishu_im_send: Skill = {

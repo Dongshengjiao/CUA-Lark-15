@@ -88,6 +88,45 @@ describe('M5 selectSkill (router)', () => {
   });
 });
 
+describe('M6 systemPromptAddendum hardening', () => {
+  it('feishu_im_send addendum forbids the global search bar', () => {
+    const text = feishu_im_send.systemPromptAddendum;
+    expect(text).toMatch(/全局搜索|global search/i);
+    // Must explicitly tell the VLM NOT to click it.
+    expect(text).toMatch(/(NEVER|DO NOT|不要|禁止)/);
+    // Mentions ⌘+K as the conversation-search shortcut explicitly.
+    expect(text).toContain('⌘+K');
+  });
+
+  it('all three feishu skills include a finished() completion signal', () => {
+    for (const skill of [feishu_im_send, feishu_calendar_create, feishu_doc_create]) {
+      const text = skill.systemPromptAddendum;
+      expect(text).toContain('finished(');
+      // Each skill must describe SOME visual completion cue. Match on a
+      // vocabulary set so individual skills can describe their own UI signal.
+      expect(text).toMatch(/气泡|模态|编辑器|条目|出现|载入|loaded/i);
+    }
+  });
+
+  it('all three feishu skills retain a few-shot block', () => {
+    for (const skill of [feishu_im_send, feishu_calendar_create, feishu_doc_create]) {
+      const text = skill.systemPromptAddendum;
+      expect(text).toMatch(/FEW-?SHOT|few-shot|示例|例：/i);
+      // Real action calls so the VLM sees concrete syntax templates.
+      expect(text).toMatch(/click\(start_box=/);
+    }
+  });
+});
+
+describe('M6 loginURL convention (= startingURL)', () => {
+  it('every feishu skill uses startingURL as its loginURL', () => {
+    for (const skill of [feishu_im_send, feishu_calendar_create, feishu_doc_create]) {
+      expect(skill.loginURL).toBe(skill.startingURL);
+      expect(skill.loginURL).toMatch(/feishu\.cn/);
+    }
+  });
+});
+
 describe('M5 defaultDetectLoggedIn', () => {
   function makePage(cookies: Array<{ name: string; domain: string; value?: string }>) {
     return {

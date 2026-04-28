@@ -7,38 +7,60 @@
 import type { Skill } from './types.js';
 
 const systemPromptAddendum = `
-You are now operating inside the Feishu Calendar web app at https://calendar.feishu.cn/.
-Like other Feishu apps this is a React SPA with custom interactive divs.
+You are operating inside the Feishu Calendar web app at https://calendar.feishu.cn/.
+The app is a React SPA with custom interactive <div>s; click targets are typically
+40-400 px wide and 30-80 px tall.
 
-Conventional flow to create a calendar event:
-  1. Click the prominent "新建日程" / "Create" button — typically a blue capsule near
-     the top-left corner (x≈70, y≈110).
-  2. A modal dialog opens. Fill in:
-     - Title: click the title input at the top of the modal (x≈540, y≈220), then type.
-     - Start time: click the start-date field (x≈420, y≈300), pick the date in the
-       popover. Same for the time picker beside it.
-     - End time: same convention.
-     - Participants (optional): click the participant input near the bottom of the
-       modal, type the name, select the dropdown match.
-     - Description / location / repeat: only fill if the prompt explicitly says so.
-  3. Click the primary "保存" / "Save" / "创建" button at the bottom-right of the modal
-     (typically x≈930, y≈680).
-  4. After the modal closes, call the final answer summarising what was created.
+## IMPORTANT — DO NOT CLICK THE GLOBAL SEARCH BAR
 
-Few-shot example:
-  Prompt: "创建一个明天下午3点开始、1小时的会议，标题是项目同步"
-  Steps:
-    - thought: 点击新建日程
-    - click(start_box='[70,110]')
-    - thought: 在标题字段输入
-    - click(start_box='[540,220]')
-    - type(content='项目同步')
-    - thought: 调整开始时间
-    - click(start_box='[420,300]')
-    - ... (date / time pickers)
-    - thought: 保存
-    - click(start_box='[930,680]')
-    - finished('已创建明日 15:00 的项目同步会议（持续 1 小时）')
+The dark wide bar at the very top (placeholder "搜索全部内容..." / "⌘+K") is
+the global omni-search and CANNOT create calendar events. Ignore it. The
+"create event" entry is the prominent blue/colored "新建日程" / "Create"
+button on the left side (typical position near x≈70, y≈110).
+
+## CONVENTIONAL FLOW
+
+  1. Click the "新建日程" / "Create" button on the left toolbar.
+  2. A modal dialog opens. Fill the fields the user asked for:
+     - Title: click the title input at the top of the modal (x≈540, y≈220), type.
+     - Start date/time: click the start-date or time field (x≈420, y≈300), pick
+       date in the popover, same for time.
+     - End date/time: same convention.
+     - Participants (optional): click the participant input near the bottom,
+       type the name, click the dropdown match.
+     - Description / location / repeat: ONLY fill if the prompt explicitly says.
+  3. Click the primary "保存" / "Save" / "创建" button at the bottom-right of
+     the modal (typical position x≈930, y≈680).
+
+## COMPLETION SIGNAL — call finished() AS SOON AS THIS HAPPENS
+
+You will see the modal dialog close, AND the new event appear as a colored
+block on the calendar grid (today/the chosen date) with the title text inside.
+THE INSTANT you see that block:
+
+    finished('已创建日程：<标题>（<时间>）')
+
+Do NOT click into the new event again, do NOT verify by hovering, do NOT
+re-screenshot. Send → modal closes → block appears → finished(). Extra
+operations will trigger max_loop and FAIL the task.
+
+## FEW-SHOT
+
+Prompt: "创建一个明天下午3点开始、1小时的会议，标题是项目同步"
+
+Steps:
+  - thought: 点击新建日程按钮
+  - click(start_box='[70,110]')
+  - thought: 在标题字段输入
+  - click(start_box='[540,220]')
+  - type(content='项目同步')
+  - thought: 调整开始时间为明天 15:00
+  - click(start_box='[420,300]')
+  - # ...（日期 / 时间选择器若干步）
+  - thought: 点击保存
+  - click(start_box='[930,680]')
+  - thought: 模态关闭、日历上看到"项目同步"新条目，任务完成
+  - finished('已创建日程：项目同步（明天 15:00 - 16:00）')
 `;
 
 export const feishu_calendar_create: Skill = {
