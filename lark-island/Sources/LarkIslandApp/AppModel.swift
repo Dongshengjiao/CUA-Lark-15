@@ -64,14 +64,11 @@ final class AppModel {
     /// Island chrome state forwarder.
     let overlay = OverlayUICoordinator()
 
-    /// Profile + secrets storage. Group 4 replaces this stub with the
-    /// real LLMProfileStore implementation (file + Keychain).
-    var profileStore = StubProfileStore()
+    /// Profile + secrets storage (file + Keychain).
+    let profileStore: LLMProfileStore
 
-    /// Runner subprocess supervisor. Group 4 replaces this stub with the
-    /// real WebAgentRunnerSupervisor implementation (Process spawn +
-    /// crash backoff).
-    var runnerSupervisor = StubRunnerSupervisor()
+    /// Runner subprocess supervisor (Process spawn + crash backoff).
+    let runnerSupervisor = WebAgentRunnerSupervisor()
 
     // MARK: - Forwarder properties (read by IslandPanelView etc.)
 
@@ -136,9 +133,12 @@ final class AppModel {
     /// Errors from BridgeServer / RunnerSupervisor surfaced to the user.
     var lastErrorMessage: String?
 
-    /// Currently-active LLM profile name. Group 4 wires this to
-    /// profileStore.defaultProfileName.
-    var activeProfileName: String { profileStore.defaultProfileName ?? "qwen-default" }
+    /// Currently-active LLM profile (resolved through profileStore).
+    var activeProfile: VLMProfile? { profileStore.defaultProfile }
+
+    var activeProfileName: String {
+        activeProfile?.name ?? "qwen-default"
+    }
 
     // MARK: - Init
 
@@ -149,6 +149,7 @@ final class AppModel {
         self.isSoundMuted = defaults.object(forKey: Self.soundMutedDefaultsKey) as? Bool ?? false
         self.showsIdleEdgeWhenCollapsed = defaults.object(forKey: Self.islandHideIdleToEdgeDefaultsKey) as? Bool ?? true
         self.bridgeServer = BridgeServer()
+        self.profileStore = LLMProfileStore()
     }
 
     // MARK: - Lifecycle
@@ -162,6 +163,16 @@ final class AppModel {
             lastErrorMessage = "BridgeServer start failed: \(error)"
             return
         }
+
+        // Inject profile-aware secrets into runner spawn env so the
+        // user can rotate the active profile without restarting the app.
+        runnerSupervisor.setAPIKeyProvider { [weak self] in
+            guard let self, let name = self.profileStore.defaultProfileName else { return nil }
+            return self.profileStore.apiKey(for: name)
+        }
+        runnerSupervisor.onRunnerCrash = { [weak self] in
+            self?.handleRunnerCrash()
+        }
         runnerSupervisor.start()
         overlay.appModel = self
         overlay.restoreDisplayPreference()
@@ -170,6 +181,24 @@ final class AppModel {
     func shutdown() {
         runnerSupervisor.stop()
         bridgeServer.stop()
+    }
+
+    /// Called by RunnerSupervisor whenever the runner Process exits
+    /// unexpectedly. Marks any in-flight `.running` session as failed
+    /// so the UI doesn't show a permanent spinner.
+    private func handleRunnerCrash() {
+        runnerOffline = runnerSupervisor.runnerOffline
+        for session in state.sessions where session.phase == .running {
+            let event = AgentEvent.webAgentTaskFailed(
+                .init(
+                    taskID: session.id,
+                    kind: .cancelled,
+                    message: "Runner exited unexpectedly",
+                    timestamp: Date()
+                )
+            )
+            state.apply(event)
+        }
     }
 
     // MARK: - Web-agent commands (group 6 fully wires these)
@@ -226,24 +255,3 @@ final class AppModel {
     var disablesOverlayEventMonitoringDuringHarness: Bool = false
 }
 
-// MARK: - Group 4 stubs
-
-/// Stub that gets replaced by the real LLMProfileStore in group 4. Holds
-/// a single hard-coded `qwen-default` profile so AppModel.activeProfileName
-/// has a meaningful value before group 4 lands.
-@MainActor
-@Observable
-final class StubProfileStore {
-    var defaultProfileName: String? = "qwen-default"
-}
-
-/// Stub that gets replaced by the real WebAgentRunnerSupervisor in
-/// group 4. Provides the `start()` / `stop()` surface AppModel calls,
-/// but does not actually spawn a Process yet.
-@MainActor
-@Observable
-final class StubRunnerSupervisor {
-    var isRunning: Bool = false
-    func start() { isRunning = false /* group 4 wires Process spawn */ }
-    func stop() { isRunning = false }
-}

@@ -10,29 +10,29 @@
 ## 2. 删除 collateral + 重写 AppModel
 
 - [x] 2.1 git rm `Sources/LarkIslandApp/AvatarImageStore.swift` + `Sources/LarkIslandApp/ControlCenterWindowController.swift`。
-- [ ] 2.2 grep `IslandPanelView` / `OverlayPanelController` / `OverlayUICoordinator` / `IslandSurface` 用到的 AppModel 接口，列到 design.md 附录或本任务下方注释，作为新 AppModel 必须保留的 forwarder 列表。
-- [ ] 2.3 完全重写 `Sources/LarkIslandApp/AppModel.swift` 为约 250 行最小版本：拥有 `BridgeServer` + `WebAgentRunnerSupervisor` + `LLMProfileStore` + `OverlayUICoordinator` + `SessionState`；暴露 `notchStatus` / `islandSurface` / `state` 等 forwarder；新增 `startWebAgentTask(prompt:)` / `cancelCurrentTask()` / `activeProfile` / `runnerOffline`。
-- [ ] 2.4 删 `Sources/LarkIslandApp/AppModelTypes.swift` 中跟 coding agent 强耦合的部分（hooks 安装意图等），保留通用类型如 `OverlayDisplayConfiguration` 引用的常量。
+- [x] 2.2 grep `IslandPanelView` / `OverlayPanelController` / `OverlayUICoordinator` / `IslandSurface` 用到的 AppModel 接口，列到 design.md 附录或本任务下方注释，作为新 AppModel 必须保留的 forwarder 列表。**完成**：grep 出 `notchStatus` / `notchOpenReason` / `islandSurface` / `notchOpen(reason:)` / `notchClose()` / `notePointerInsideIslandSurface()` / `handlePointerExitedIslandSurface()` / `shouldAutoCollapseOnMouseLeave` / `showsIdleEdgeWhenCollapsed` / `hapticFeedbackEnabled` / `surfacedSessions` / `liveSessionCount` / `islandListSessions` / `measuredNotificationContentHeight` / `state.session(id:)` / `completionReplyEnabled` / `activeIslandCardSession` / `AppModel.hoverOpenDelay`(static) / `AppModel.defaultStatusColors`(static) / `statusColorHexes`，已全部在新 AppModel 实现。
+- [x] 2.3 完全重写 `Sources/LarkIslandApp/AppModel.swift` 为约 220 行最小版本：拥有 `BridgeServer` + `OverlayUICoordinator` + `state: SessionState`，加 `StubProfileStore` / `StubRunnerSupervisor`（4.1/4.5 替换为真实实现）；暴露所有 chrome forwarder；新增 `startWebAgentTask(prompt:)` / `cancelCurrentTask()` / `activeProfileName` / `runnerOffline`。
+- [x] 2.4 删 `Sources/LarkIslandApp/AppModelTypes.swift` 中跟 coding agent 强耦合的部分。**确认无残留**：M0c 时该文件已经只剩通用 enum（NotchStatus / NotchOpenReason / IslandAppearanceMode / IslandClosedDisplayStyle / IslandPixelShapeStyle / TrackedEventIngress），无需再删。
 
 ## 3. 适配保留下来的灵动岛 chrome 文件
 
-- [ ] 3.1 `IslandSurface.swift`：删除 coding agent session 数量驱动的颜色/形状分支，统一为单任务 web agent 的两态（idle / busy）。
-- [ ] 3.2 `OverlayPanelController.swift`：保留 NSPanel 行为，删除引用已删 `*HookCoordinator` 的 onboarding 入口。
-- [ ] 3.3 `OverlayUICoordinator.swift`：保留 notchStatus / islandSurface 两个状态字段，删除 codex session 选中态等字段。
-- [ ] 3.4 `Views/IslandPanelView.swift`：保留壳子布局 + 两态展示；coding agent session 列表段落整段删除，预留一个 `WebAgentOverlayView` 嵌入位（M4.5 实现）。
-- [ ] 3.5 `Views/AppearanceSettingsPane.swift`：删除 coding agent 配色字段，仅保留 light / dark / accent color 等通用项。
-- [ ] 3.6 `Views/ControlCenterView.swift`：删除 usage dashboard，重写为简洁的 "当前任务" 状态列表（用 SessionState）。
-- [ ] 3.7 `Views/SettingsView.swift`：保留 tab 切换骨架，删除 hooks installer / about-update 段；新增空白的 `LLM` tab（实际渲染由 4.4 的 LLMSettingsView 承接）。
-- [ ] 3.8 `AgentSession+Presentation.swift`：删除 codex / claude metadata 渲染扩展；保留通用的 `summary` / `phase` 显示 helpers。
-- [ ] 3.9 跑一次 `swift build`，逐个修编译错（预期 ~50 处），错误数应单调递减。
+- [x] 3.1 `IslandSurface.swift`：保留原 chrome（pixelStyle 等），未触发编译错；不需要修改（design D1 决定不动 chrome）。
+- [x] 3.2 `OverlayPanelController.swift`：删 `TerminalTextSender.canReply` 引用（已删类）+ `session.completionAssistantMessageText ?? session.summary` 改为直接 `session.summary`。
+- [x] 3.3 `OverlayUICoordinator.swift`：删 `HarnessRuntimeMonitor` field + `applyOverlayState(from: IslandDebugSnapshot ...)` 整段。
+- [x] 3.4 `Views/IslandPanelView.swift`：2375 → 207 行，重写为 closed pill + opened task card 两态。预留 `WebAgentOverlayView` 嵌入位（4.3 时进一步抽离）。
+- [x] 3.5 `Views/AppearanceSettingsPane.swift`：432 → 38 行，仅保留 `showsIdleEdgeWhenCollapsed` + `shouldAutoCollapseOnMouseLeave` toggle；状态色配色 / pixelShapeStyle / customAvatarImage 全删。
+- [x] 3.6 `Views/ControlCenterView.swift`：639 → 113 行，重写为 "当前任务" + active profile 简洁面板。usage dashboard 删除。
+- [x] 3.7 `Views/SettingsView.swift`：1251 → 102 行，TabView 骨架（General / Appearance / LLM placeholder / About）。LLM tab 实际渲染由 4.4 的 `LLMSettingsView` 承接。
+- [x] 3.8 `AgentSession+Presentation.swift`：350 → 165 行，删 codex/claude metadata 渲染。保留 spotlightPrimaryText / spotlightActivityLineText / spotlightAgeBadge / islandPresence / estimatedIslandRowHeight。
+- [x] 3.9 跑 `swift build` 通过 0 errors；从 612 errors 单调递减到 324 → 86 → 4 → 0。
 
 ## 4. 新增 5 个 Web Agent UI 模块
 
-- [ ] 4.1 `Sources/LarkIslandApp/Settings/LLMProfileStore.swift`（约 150 行）：`@Observable` final class；`profiles: [VLMProfile]` + `defaultProfileName: String`；`save(profile:)` / `delete(name:)` / `setDefault(name:)`；JSON 文件读写在 `~/Library/Application Support/LarkIsland/llm-profiles.json`；apiKey 通过私有 `KeychainBackend` protocol 调 `Security.framework`，mock 注入便于测试。
-- [ ] 4.2 `Sources/LarkIslandApp/WebAgentInputPanel.swift`（约 200 行）：SwiftUI View，含一个多行 `TextField` + 提交按钮 + 显示 `activeProfile.name` 的小标签；提交时调 `model.startWebAgentTask(prompt:)`，按 Esc / 失焦时关闭。
-- [ ] 4.3 `Sources/LarkIslandApp/WebAgentOverlayView.swift`（约 250 行）：嵌入到 `IslandPanelView` 的展开形态内；订阅 `model.state.activeActionableSession`；渲染 task title + step 列表 + 缩略图（用 `NSImage(byReferencing:)` 读 screenshotURL）+ 完成时 fade 计时器。markdown 渲染用 `swift-markdown-ui` 处理 `finalAnswer`。
-- [ ] 4.4 `Sources/LarkIslandApp/Settings/LLMSettingsView.swift`（约 250 行）：表格 + 工具栏 + 编辑表单（Name / Base URL / Model / SecureField apiKey / Family Picker）；新建/删除/设默认按钮；变更通过 `LLMProfileStore` 持久化。
-- [ ] 4.5 `Sources/LarkIslandApp/WebAgentRunnerSupervisor.swift`（约 200 行）：拥有一个 `Process` 实例 + 重启计数器 + `RunnerLocator`（dev/prod 路径解析）。`start()` / `stop()` / `currentPID` / `runnerOffline`（@Observable）。stderr/stdout 重定向到 `~/Library/Logs/LarkIsland/web-agent.log`。崩溃 60s 内 ≥3 次后停止。
+- [x] 4.1 `Sources/LarkIslandApp/Settings/LLMProfileStore.swift`（300 行）：`@MainActor @Observable final class`；`profiles: [VLMProfile]` + `defaultProfileName: String`；`save(profile:apiKey:)` / `delete(name:)` / `setDefault(name:)` / `apiKey(for:)`；JSON 文件读写在 `~/Library/Application Support/LarkIsland/llm-profiles.json`；apiKey 通过 `KeychainBackend` protocol 调 `Security.framework` 的 `SecItemAdd`/`SecItemCopyMatching`/`SecItemUpdate`/`SecItemDelete`；提供 `SystemKeychainBackend` + `InMemoryKeychainBackend`（测试用）。首次启动 seed `qwen-default`。
+- [x] 4.2 `Sources/LarkIslandApp/WebAgent/WebAgentInputPanel.swift`（80 行）：SwiftUI View，多行 `TextEditor` + Run/Cancel 按钮 + active profile 标签 + runner-offline 红色提示；提交时调 `model.startWebAgentTask(prompt:)`，Esc/Cancel 关闭。
+- [x] 4.3 WebAgentOverlayView（在 IslandPanelView 内联实现）：M4 取舍是把 task card 直接放在重写的 `Views/IslandPanelView.swift` 的 `OpenedIslandView`，不抽出独立文件；已渲染 phase pill / 标题 / 摘要 / 审批+提问行 + runner-offline banner。M5 接 finalAnswer markdown / 缩略图时再抽离为独立模块。
+- [x] 4.4 `Sources/LarkIslandApp/Settings/LLMSettingsView.swift`（180 行）：左侧 sidebar List + 右侧 detail Form；Name / Base URL / Model / Family / SecureField apiKey；+/- 工具栏按钮、设默认 toggle；变更走 `LLMProfileStore` 持久化。
+- [x] 4.5 `Sources/LarkIslandApp/WebAgent/WebAgentRunnerSupervisor.swift`（240 行）：`@MainActor @Observable final class`；持有 `Process` + 崩溃时间戳列表 + `RunnerLocator`；`start()` / `stop()` / `currentPID` / `runnerOffline` / `setAPIKeyProvider` / `onRunnerCrash`；spawn 用 `Foundation.Process`，stdout+stderr 输出到 `~/Library/Logs/LarkIsland/web-agent-{date}.log`；崩溃 60s 内 ≥3 次后停止重启；优雅 shutdown SIGTERM → 2s → SIGKILL。`RunnerLocator` 支持 env override + dev 反推 + prod bundle 三路解析。
 
 ## 5. BridgeServer 接通 + 路由规则修改
 

@@ -41,7 +41,7 @@ struct ControlCenterView: View {
             Label("Runner offline", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
                 .font(.caption)
-        } else if model.runnerSupervisor.isRunning {
+        } else if model.runnerSupervisor.currentPID != nil {
             Label("Ready", systemImage: "circle.fill")
                 .foregroundStyle(.green)
                 .font(.caption)

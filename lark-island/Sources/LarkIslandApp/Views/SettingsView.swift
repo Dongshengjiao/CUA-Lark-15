@@ -25,7 +25,7 @@ struct SettingsView: View {
                 .tabItem { Label("Appearance", systemImage: "paintbrush") }
                 .tag(SettingsTab.appearance)
 
-            LLMSettingsPlaceholder()
+            LLMSettingsView(store: model.profileStore)
                 .tabItem { Label("LLM", systemImage: "brain.head.profile") }
                 .tag(SettingsTab.llm)
 
@@ -65,24 +65,6 @@ private struct GeneralSettingsPane: View {
         }
         .formStyle(.grouped)
         .padding()
-    }
-}
-
-/// Placeholder for the LLMSettingsView built in M4 group 4.
-private struct LLMSettingsPlaceholder: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "brain.head.profile")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("LLM profile settings")
-                .font(.headline)
-            Text("Coming in M4 group 4: profile CRUD + Keychain-backed API keys.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
