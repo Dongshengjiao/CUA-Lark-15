@@ -2,14 +2,14 @@
 
 ## 1. Package.swift 重启 + 目录改名
 
-- [ ] 1.1 在 [`lark-island/Package.swift`](../../../lark-island/Package.swift) 加回 `LarkIslandApp` executable product 与 target；引入 `swift-markdown-ui` package dependency；**不**回引 Sparkle。
-- [ ] 1.2 `Sources/OpenIslandApp/` → `Sources/LarkIslandApp/`（git mv）；同步改名 `OpenIslandApp.swift` → `LarkIslandApp.swift`、`OpenIslandBrandMark.swift` → `LarkIslandBrandMark.swift`。
-- [ ] 1.3 用 ripgrep + sed 把改名后目录内所有 `OpenIsland`(类名常量) 替换为 `LarkIsland`；`OpenIslandApp` （class 名）替换为 `LarkIslandApp`；`open-island` 替换为 `lark-island`；校验剩余无 OpenIsland 字面量（除注释中说明历史的）。
-- [ ] 1.4 新增 [`lark-island/config/packaging/LarkIslandApp.entitlements`](../../../lark-island/config/packaging/LarkIslandApp.entitlements) 声明 `com.apple.security.network.client` + `keychain-access-groups`；entitlements 文件路径在 Package.swift 暂不引用（M7 打包时再 wire），但本里程碑就位避免后续遗忘。
+- [x] 1.1 在 [`lark-island/Package.swift`](../../../lark-island/Package.swift) 加回 `LarkIslandApp` executable product 与 target；引入 `swift-markdown-ui` package dependency；**不**回引 Sparkle。
+- [x] 1.2 `Sources/OpenIslandApp/` → `Sources/LarkIslandApp/`（git mv）；同步改名 `OpenIslandApp.swift` → `LarkIslandApp.swift`、`OpenIslandBrandMark.swift` → `LarkIslandBrandMark.swift`。
+- [x] 1.3 用 ripgrep + sed 把改名后目录内所有 `OpenIsland`(类名常量) 替换为 `LarkIsland`；`OpenIslandApp` （class 名）替换为 `LarkIslandApp`；`open-island` 替换为 `lark-island`；校验剩余无 OpenIsland 字面量（除注释中说明历史的）。同时删了 `Resources/open-island-opencode.js`（OpenCode plugin 客户端代码，coding-agent collateral）。
+- [x] 1.4 新增 [`lark-island/config/packaging/LarkIslandApp.entitlements`](../../../lark-island/config/packaging/LarkIslandApp.entitlements) 声明 `com.apple.security.network.client` + `keychain-access-groups`；entitlements 文件路径在 Package.swift 暂不引用（M7 打包时再 wire），但本里程碑就位避免后续遗忘。同时删了上游残留的 `config/packaging/OpenIslandApp.entitlements`。
 
 ## 2. 删除 collateral + 重写 AppModel
 
-- [ ] 2.1 git rm `Sources/LarkIslandApp/AvatarImageStore.swift` + `Sources/LarkIslandApp/ControlCenterWindowController.swift`。
+- [x] 2.1 git rm `Sources/LarkIslandApp/AvatarImageStore.swift` + `Sources/LarkIslandApp/ControlCenterWindowController.swift`。
 - [ ] 2.2 grep `IslandPanelView` / `OverlayPanelController` / `OverlayUICoordinator` / `IslandSurface` 用到的 AppModel 接口，列到 design.md 附录或本任务下方注释，作为新 AppModel 必须保留的 forwarder 列表。
 - [ ] 2.3 完全重写 `Sources/LarkIslandApp/AppModel.swift` 为约 250 行最小版本：拥有 `BridgeServer` + `WebAgentRunnerSupervisor` + `LLMProfileStore` + `OverlayUICoordinator` + `SessionState`；暴露 `notchStatus` / `islandSurface` / `state` 等 forwarder；新增 `startWebAgentTask(prompt:)` / `cancelCurrentTask()` / `activeProfile` / `runnerOffline`。
 - [ ] 2.4 删 `Sources/LarkIslandApp/AppModelTypes.swift` 中跟 coding agent 强耦合的部分（hooks 安装意图等），保留通用类型如 `OverlayDisplayConfiguration` 引用的常量。

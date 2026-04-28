@@ -1,5 +1,5 @@
 import SwiftUI
-import OpenIslandCore
+import LarkIslandCore
 
 struct ControlCenterView: View {
     var model: AppModel
@@ -486,7 +486,7 @@ struct ControlCenterView: View {
                     return "managed hooks present"
                 }
                 if model.hooksBinaryURL == nil {
-                    return "Build OpenIslandHooks before installing."
+                    return "Build LarkIslandHooks before installing."
                 }
                 return "no managed hooks"
             }(),

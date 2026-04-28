@@ -1,6 +1,6 @@
 import SwiftUI
 import AppKit
-import OpenIslandCore
+import LarkIslandCore
 
 // MARK: - Settings tabs
 
@@ -1072,7 +1072,7 @@ struct RemoteConnectionSection: View {
     }
 
     private var socketName: String {
-        "open-island-\(getuid()).sock"
+        "lark-island-\(getuid()).sock"
     }
 
     private var setupCommand: String {

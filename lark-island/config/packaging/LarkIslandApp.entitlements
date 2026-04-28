@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow the runner subprocess + LLM SDK to reach DashScope / Volcano / etc. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- LLMProfileStore reads/writes API keys via Security.framework
+         under service = ai.neolix.lark-island. Keychain access groups
+         only matter once we sandbox / sign for distribution; declared
+         now so M7 release work doesn't have to re-design the layout. -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)ai.neolix.lark-island</string>
+    </array>
+</dict>
+</plist>

@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
-import OpenIslandCore
+import LarkIslandCore
 
 @MainActor
 final class OverlayPanelController {

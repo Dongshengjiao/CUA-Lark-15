@@ -1,5 +1,5 @@
 import Foundation
-import OpenIslandCore
+import LarkIslandCore
 
 enum SpotlightActivityTone {
     case live

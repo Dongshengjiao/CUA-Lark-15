@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class OpenIslandAppDelegate: NSObject, NSApplicationDelegate {
+final class LarkIslandAppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private let harnessLaunchConfiguration = HarnessLaunchConfiguration()
     private let launchedAt = Date()
@@ -38,7 +38,7 @@ final class OpenIslandAppDelegate: NSObject, NSApplicationDelegate {
             }
 
             // Hide all windows on launch — settings and debug open on demand only.
-            OpenIslandAppDelegate.hideAllAppWindows()
+            LarkIslandAppDelegate.hideAllAppWindows()
 
             if harnessLaunchConfiguration.shouldShowControlCenter,
                harnessLaunchConfiguration.scenario != nil {
@@ -96,8 +96,8 @@ final class OpenIslandAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct OpenIslandApp: App {
-    @NSApplicationDelegateAdaptor(OpenIslandAppDelegate.self)
+struct LarkIslandApp: App {
+    @NSApplicationDelegateAdaptor(LarkIslandAppDelegate.self)
     private var appDelegate
 
     @Environment(\.openWindow) private var openWindow
@@ -126,7 +126,7 @@ struct OpenIslandApp: App {
         MenuBarExtra {
             MenuBarContentView(model: appDelegate.model)
         } label: {
-            OpenIslandBrandMark(size: 18, style: .template)
+            LarkIslandBrandMark(size: 18, style: .template)
                 .accessibilityLabel("Open Island")
         }
         .menuBarExtraStyle(.window)

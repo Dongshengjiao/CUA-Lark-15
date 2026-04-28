@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct OpenIslandBrandMark: View {
+struct LarkIslandBrandMark: View {
     enum Style {
         case duotone
         case template

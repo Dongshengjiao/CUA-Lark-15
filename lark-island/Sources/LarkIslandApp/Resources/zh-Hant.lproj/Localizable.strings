@@ -97,7 +97,7 @@
 "setup.section.usage" = "用量橋接";
 "setup.section.permissions" = "權限";
 "setup.binaryReady" = "就緒";
-"setup.binaryMissing" = "未找到 — 請先建構 OpenIslandHooks";
+"setup.binaryMissing" = "未找到 — 請先建構 LarkIslandHooks";
 "setup.hookReady" = "Hooks 已安裝";
 "setup.hookMissing" = "Hooks 未安裝";
 "setup.usageBridge" = "Claude 用量橋接";

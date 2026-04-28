@@ -1,5 +1,5 @@
 import SwiftUI
-import OpenIslandCore
+import LarkIslandCore
 
 struct AppearanceSettingsPane: View {
     var model: AppModel

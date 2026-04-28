@@ -97,7 +97,7 @@
 "setup.section.usage" = "Usage Bridge";
 "setup.section.permissions" = "Permissions";
 "setup.binaryReady" = "Ready";
-"setup.binaryMissing" = "Not found — build OpenIslandHooks first";
+"setup.binaryMissing" = "Not found — build LarkIslandHooks first";
 "setup.hookReady" = "Hooks installed";
 "setup.hookMissing" = "Hooks not installed";
 "setup.usageBridge" = "Claude Usage Bridge";

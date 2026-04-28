@@ -1,5 +1,5 @@
 import Foundation
-import OpenIslandCore
+import LarkIslandCore
 
 enum IslandSurface: Equatable {
     case sessionList(actionableSessionID: String? = nil)

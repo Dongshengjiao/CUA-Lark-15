@@ -19,7 +19,7 @@ struct IslandPixelGlyph: View {
                 .frame(width: min(width, height), height: min(width, height))
                 .clipShape(Circle())
         } else if style == .bars || style == .custom {
-            OpenIslandBrandMark(
+            LarkIslandBrandMark(
                 size: min(width, height),
                 tint: tint,
                 isAnimating: isAnimating,

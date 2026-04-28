@@ -1,6 +1,6 @@
 import SwiftUI
 @preconcurrency import MarkdownUI
-import OpenIslandCore
+import LarkIslandCore
 
 private struct NotificationContentHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
@@ -372,7 +372,7 @@ struct IslandPanelView: View {
                             )
                             .matchedGeometryEffect(id: "island-icon", in: notchNamespace, isSource: true)
                         } else {
-                            OpenIslandIcon(size: 14, isAnimating: hasClosedActivity, tint: scoutTint)
+                            LarkIslandIcon(size: 14, isAnimating: hasClosedActivity, tint: scoutTint)
                                 .matchedGeometryEffect(id: "island-icon", in: notchNamespace, isSource: true)
                         }
 
@@ -2000,13 +2000,13 @@ private struct IslandWideButtonStyle: ButtonStyle {
 
 // MARK: - Open Island icon (left side of closed notch)
 
-private struct OpenIslandIcon: View {
+private struct LarkIslandIcon: View {
     let size: CGFloat
     var isAnimating: Bool = false
     var tint: Color = .mint
 
     var body: some View {
-        OpenIslandBrandMark(
+        LarkIslandBrandMark(
             size: size,
             tint: tint,
             isAnimating: isAnimating,

@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 import Observation
-import OpenIslandCore
+import LarkIslandCore
 
 @MainActor
 @Observable
