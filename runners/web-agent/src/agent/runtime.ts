@@ -93,6 +93,13 @@ export class AgentRuntime {
     let stepCount = 0;
     let totalTokens = 0;
     let finalAnswer: string | null = null;
+    // GUIAgent.run() can finish without throwing even when execution
+    // failed — it captures BrowserOperator errors via async-retry,
+    // surfaces them through onError, and resolves the run() promise
+    // normally. We record any such failure here so runTask() can emit
+    // webAgentTaskFailed instead of falsely emitting completed.
+    type RecordedFailure = { kind: WebAgentFailureKind; message: string };
+    const failureRef: { current: RecordedFailure | null } = { current: null };
 
     const onStep = (data: GUIAgentData) => {
       const lastConv = data.conversations[data.conversations.length - 1];
@@ -143,6 +150,16 @@ export class AgentRuntime {
         onFinalAnswer: (answer) => {
           finalAnswer = answer;
         },
+        onError: (errPayload) => {
+          // GUIAgent passes a GUIAgentError-shaped payload here.
+          // Pull out a reasonable string regardless of shape.
+          const errAny = errPayload as { name?: string; message?: string; status?: number };
+          const synthesized = new Error(errAny?.message ?? String(errPayload));
+          if (errAny?.name) synthesized.name = errAny.name;
+          if (failureRef.current === null) {
+            failureRef.current = this.classifyError(synthesized);
+          }
+        },
       });
     } catch (err) {
       const { kind, message } = this.classifyError(err);
@@ -155,6 +172,19 @@ export class AgentRuntime {
     } catch (err) {
       const { kind, message } = this.classifyError(err);
       this.emitFailure(command.taskID, kind, message, startedAt);
+      return;
+    }
+
+    // Even if agent.run() resolved normally, GUIAgent may have signaled
+    // an error via onError without throwing. Treat that as a failed task
+    // per spec ("异常按 WebAgentFailureKind 分类回灌").
+    if (failureRef.current !== null) {
+      this.emitFailure(
+        command.taskID,
+        failureRef.current.kind,
+        failureRef.current.message,
+        startedAt,
+      );
       return;
     }
 
@@ -182,6 +212,7 @@ export class AgentRuntime {
     profile: ResolvedProfile;
     onStep: (data: GUIAgentData) => void;
     onFinalAnswer: (answer: string) => void;
+    onError: (error: unknown) => void;
   }): Promise<RunnableAgent> {
     const operator = new BrowserOperator({
       browser: this.browser as unknown as never,
@@ -208,6 +239,7 @@ export class AgentRuntime {
       onData: ({ data }) => args.onStep(data),
       onError: ({ error }) => {
         this.logger.error(`[runtime] agent error: ${error}`);
+        args.onError(error);
       },
     });
 
@@ -235,7 +267,7 @@ export class AgentRuntime {
       name === 'APIConnectionError' ||
       name === 'AuthenticationError' ||
       name === 'BadRequestError' ||
-      /quota|api[ _-]?key|insufficient|invalid model|unsupported/i.test(rawMessage)
+      /quota|api[ _-]?key|insufficient|invalid model|unsupported model/i.test(rawMessage)
     ) {
       return { kind: 'vlmError', message };
     }

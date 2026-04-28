@@ -31,16 +31,26 @@ class FakeRuntime extends AgentRuntime {
   public agentScript: Array<GUIAgentData> = [];
   public throwOnRun: Error | null = null;
   public finalAnswer: string | null = null;
+  /**
+   * If set, the fake agent fires onError(...) during run() but resolves
+   * normally (matching the real GUIAgent's "resolved with status:error"
+   * behavior on max-retry execute failures).
+   */
+  public errorWithoutThrow: { name?: string; message: string } | null = null;
 
   protected async createAgent(args: {
     profile: ResolvedProfile;
     onStep: (data: GUIAgentData) => void;
     onFinalAnswer: (answer: string) => void;
+    onError: (error: unknown) => void;
   }): Promise<RunnableAgent> {
     return {
       run: async (_instruction: string) => {
         for (const data of this.agentScript) {
           args.onStep(data);
+        }
+        if (this.errorWithoutThrow) {
+          args.onError(this.errorWithoutThrow);
         }
         if (this.throwOnRun) {
           throw this.throwOnRun;
@@ -254,6 +264,31 @@ describe('M3 AgentRuntime — envelope flow', () => {
       );
       expect(stepEnv.event.payload.actionType).toBe('click');
       expect(stepEnv.event.payload.thought).toBe('looking at the page');
+    }
+  });
+
+  it('emits webAgentTaskFailed when GUIAgent fires onError without throwing (regression: M3 e2e bug)', async () => {
+    const { sink, envelopes } = makeSink();
+    const runtime = new FakeRuntime({
+      sink,
+      browser: {} as never,
+      logger: { info: () => {}, error: () => {}, warn: () => {}, log: () => {} } as never,
+    });
+    runtime.errorWithoutThrow = { name: 'PageError', message: 'Unsupported key: space' };
+
+    await runtime.runTask({ taskID: 't1', prompt: 'go' }, PROFILE);
+
+    const failed = envelopes.find(
+      (e) => e.type === 'event' && e.event.type === 'webAgentTaskFailed',
+    );
+    const completed = envelopes.find(
+      (e) => e.type === 'event' && e.event.type === 'webAgentTaskCompleted',
+    );
+    expect(failed).toBeDefined();
+    expect(completed).toBeUndefined();
+    if (failed && failed.type === 'event' && failed.event.type === 'webAgentTaskFailed') {
+      expect(failed.event.payload.kind).toBe('pageError');
+      expect(failed.event.payload.message).toContain('Unsupported key: space');
     }
   });
 
