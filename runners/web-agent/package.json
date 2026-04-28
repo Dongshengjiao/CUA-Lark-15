@@ -1,0 +1,31 @@
+{
+  "name": "@lark-island/web-agent-runner",
+  "version": "0.1.0-spike",
+  "description": "Headless Chromium runner that drives UI-TARS Browser Operator + Qwen3-VL-Plus for the Lark Island web agent. Communicates with the LarkIslandApp over Unix socket.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "hello": "tsx examples/hello.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@agent-infra/browser": "^0.1.1",
+    "@agent-infra/logger": "^0.0.1",
+    "@ui-tars/operator-browser": "^1.2.3",
+    "@ui-tars/sdk": "^1.2.3",
+    "dotenv": "^17.4.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
