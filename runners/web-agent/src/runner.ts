@@ -20,6 +20,19 @@ import { AgentRuntime } from './agent/runtime.js';
 import { userDataDirFor } from './agent/profiles_dir.js';
 import { registry, selectSkill } from './skills/registry.js';
 
+// M6 task 2.x: navigate to a populated default page on startup so the
+// VLM never sees about:blank when running a generic task. M5 task 7.5
+// regression showed that on a blank screen the VLM's first move is
+// "Cmd+Space → Spotlight" because it doesn't realise it's inside a
+// browser. Putting *something* on screen — a search bar, in this case —
+// gives it a workable starting context.
+//
+// For mainland-China demos where google.com is slow/unreliable, change
+// this constant to `https://www.bing.com` (or set the LARK_ISLAND_RUNNER_DEFAULT_URL
+// env var, honored below).
+const DEFAULT_STARTING_URL =
+  process.env.LARK_ISLAND_RUNNER_DEFAULT_URL ?? 'https://www.google.com';
+
 async function main() {
   const logger = new ConsoleLogger('[lark-island/runner]');
   const socketPath = defaultSocketPath();
@@ -69,12 +82,37 @@ async function main() {
     process.exit(1);
   }
 
+  // M6 task 2.1-2.3: pre-warm the page with a default URL so the VLM
+  // doesn't land on about:blank when generic tasks come in. Failure
+  // here (network down, DNS broken, captive portal) does NOT abort the
+  // runner — we keep going so skill-driven tasks (which navigate to
+  // their own startingURL) still work.
+  try {
+    const page = await browserRef.current.createPage();
+    await page.goto(DEFAULT_STARTING_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 10_000,
+    });
+    logger.info(`navigated to default starting URL: ${DEFAULT_STARTING_URL}`);
+  } catch (err) {
+    logger.warn(
+      `default starting URL navigation failed (${DEFAULT_STARTING_URL}): ${err}; continuing on about:blank`,
+    );
+  }
+
   // 3) Build runtime over (sink=client, browserRef=swappable Chromium).
+  // M6 task 1.1: maxLoopCount lifted from 12 → 30 after M5 task 7.3
+  // smoke test showed feishu IM tasks needed ~25 steps just to land
+  // on the right contact, leaving zero budget for type+send+verify.
+  // 30 gives the agent a real completion budget; if a task still
+  // hits the cap it's almost certainly the VLM looping rather than
+  // running out of legitimate steps (in which case the prompt addendum
+  // — see m6 task 1.2-1.4 — is what needs sharpening, not the cap).
   const runtime = new AgentRuntime({
     sink: client,
     browserRef,
     logger,
-    maxLoopCount: 12,
+    maxLoopCount: 30,
     vlmTimeoutMs: 180_000,
   });
 
