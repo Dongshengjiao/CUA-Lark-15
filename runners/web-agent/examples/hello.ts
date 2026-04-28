@@ -61,7 +61,6 @@ async function main() {
       // DashScope vision endpoints can take 30-90s for large screenshots.
       // OpenAI SDK's default short timeout fires too early.
       timeout: 180_000,
-      maxRetries: 2,
     },
     logger,
     maxLoopCount: 5,

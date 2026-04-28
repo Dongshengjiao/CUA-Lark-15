@@ -28,16 +28,16 @@
 
 ## 5. TypeScript side — runner codec
 
-- [ ] 5.1 Create `runners/web-agent/src/bridge/types.ts` defining TypeScript types for `BridgeHello`, `BridgeClientRole` ('observer' | 'webAgentRunner'), `BridgeCommand` (4 cases incl. `runWebAgentTask`), `BridgeResponse`, `WebAgentFailureKind`, the 5 web-agent payloads, `AgentEvent` (existing 7 cases + 5 new), and `BridgeEnvelope` discriminated union
-- [ ] 5.2 Create `runners/web-agent/src/bridge/codec.ts` with `encodeEnvelope(env: BridgeEnvelope): string` (returns newline-suffixed JSON) and `decodeEnvelope(line: string): BridgeEnvelope` (throws on malformed JSON; performs the same `type` field demux that Swift does)
-- [ ] 5.3 Re-export from `runners/web-agent/src/bridge/index.ts`
+- [x] 5.1 Create `runners/web-agent/src/bridge/types.ts` defining TypeScript types for `BridgeHello`, `BridgeClientRole` ('observer' | 'webAgentRunner'), `BridgeCommand` (4 cases incl. `runWebAgentTask`), `BridgeResponse`, `WebAgentFailureKind`, the 5 web-agent payloads, `AgentEvent` (existing 7 cases + 5 new), and `BridgeEnvelope` discriminated union
+- [x] 5.2 Create `runners/web-agent/src/bridge/codec.ts` with `encodeEnvelope(env: BridgeEnvelope): string` (returns newline-suffixed JSON) and `decodeEnvelope(line: string): BridgeEnvelope` (throws on malformed JSON; performs the same `type` field demux that Swift does)
+- [x] 5.3 Re-export from `runners/web-agent/src/bridge/index.ts`
 
 ## 6. TypeScript side — tests
 
-- [ ] 6.1 Add vitest as devDep: `npm install --save-dev vitest`
-- [ ] 6.2 Add `"test": "vitest run"` to `runners/web-agent/package.json` scripts
-- [ ] 6.3 Create `runners/web-agent/test/bridge.test.ts` with the same round-trip cases the Swift side has. Use the **same** fixture files at `lark-island/Tests/LarkIslandCoreTests/Fixtures/web-agent-bridge/` (read via relative path) so byte-level drift between sides triggers a failure
-- [ ] 6.4 Run `cd runners/web-agent && npm test`; all tests pass
+- [x] 6.1 Add vitest as devDep: `npm install --save-dev vitest`
+- [x] 6.2 Add `"test": "vitest run"` to `runners/web-agent/package.json` scripts
+- [x] 6.3 Create `runners/web-agent/test/bridge.test.ts` with the same round-trip cases the Swift side has. Use the **same** fixture files at `lark-island/Tests/LarkIslandCoreTests/Fixtures/web-agent-bridge/` (read via relative path) so byte-level drift between sides triggers a failure
+- [x] 6.4 Run `cd runners/web-agent && npm test`; all tests pass
 
 ## 7. Wrap-up
 
