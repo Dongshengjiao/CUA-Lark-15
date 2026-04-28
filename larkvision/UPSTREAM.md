@@ -64,6 +64,25 @@ uv pip install -r requirements.txt   # 装上游所有依赖 (pynput / langchain
 
 之后跑任何 example 都不需要再装。
 
+### 4.3 上游 bug fix: done action schema/handler 脱节 (2026-04-27)
+
+**症状**: 跑 `lark_im_search` 时 actor 输出 `{"done":{"text":"Task completed"}}`, controller 报 `Error executing action done: got an unexpected keyword argument 'text'`. Agent 进入死循环, max_steps 到了报失败.
+
+**根因**: 上游 `src/controller/views.py` L9 定义 `class DoneAction: text: str`(LangChain 把这个 schema 注入给 actor LLM 看), 但 `src/controller/service.py` L161 注册 done 时用 `param_model=NoParamsAction`, handler `async def done()` 也无参数. flash 等严格按 schema 输出的模型必报错; doubao-seed-1.5-pro 等"宽松"模型偶尔省略 text 字段所以巧合能跑通.
+
+**修法** (3 行 patch in `src/controller/service.py`):
+```python
+from src.controller.views import DoneAction  # 新加 import
+
+@self.registry.action('Complete task', param_model=DoneAction)  # NoParamsAction → DoneAction
+async def done(text: str = ""):                                  # 接受可选 text
+    return ActionResult(extracted_content=text or 'done', is_done=True)
+```
+
+**向后兼容**: `done()` / `done(text="...")` 两种调用都接受. 不破坏上游其他逻辑.
+
+**FAQ Q4 合规**: 这是修上游 bug, 不属于自研功能. 已在代码内加 `[LarkVision patch 2026-04-27]` 注释 + 本节登记.
+
 ### 4.2 关于 examples/configs 软链
 
 `main.py` L294 把相对 `--config` 路径 join 到 `__file__.parent` (即 `examples/`), 默认期望 config 在 `examples/configs/...`. 我们把 configs 放在 `larkvision/configs/` (仓库根更清晰), 通过软链 `examples/configs -> ../configs` 让两条路径都能访问同一份文件:

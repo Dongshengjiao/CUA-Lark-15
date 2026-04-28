@@ -7,6 +7,7 @@ import Cocoa
 from src.agent.views import ActionModel, ActionResult
 from src.controller.registry.service import Registry
 from src.controller.views import (
+	DoneAction,  # [LarkVision patch 2026-04-27] 给 done handler 用, 修上游 schema/handler 脱节
 	InputTextAction,
 	OpenAppAction,
 	AppleScriptAction,
@@ -155,11 +156,14 @@ class Controller:
 	def _register_default_actions(self):
 		"""Register all default cua actions"""
 
+		# [LarkVision patch 2026-04-27]: 上游 schema/handler 脱节 - DoneAction(views.py L9) 含 text 字段
+		# 但 done() 用 NoParamsAction 注册导致 flash/严格模型按 schema 输出 {"text":"..."} 时报错.
+		# 修法: 接受可选 text, 兼容空调用 / 带 text 调用. 详见 larkvision/UPSTREAM.md §4.3
 		@self.registry.action(
 				'Complete task',
-				param_model=NoParamsAction)
-		async def done():
-			return ActionResult(extracted_content='done', is_done=True)
+				param_model=DoneAction)
+		async def done(text: str = ""):
+			return ActionResult(extracted_content=text or 'done', is_done=True)
 		@self.registry.action(
 				'Type', 
 				param_model=InputTextAction,
