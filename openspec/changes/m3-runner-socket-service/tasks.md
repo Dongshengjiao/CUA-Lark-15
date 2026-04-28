@@ -37,13 +37,13 @@
 
 ## 6. 测试与协议契约
 
-- [ ] 6.1 跑 `cd runners/web-agent && npm run typecheck`：通过。
-- [ ] 6.2 跑 `cd runners/web-agent && npm test`：所有 vitest（既有 16 + 新加约 12）通过。
-- [ ] 6.3 跑 `cd lark-island && swift test`：24 测试 still pass（M3 不动 Swift 端，只是 sanity）。
-- [ ] 6.4 检查 `runners/web-agent/src/bridge/codec.ts` 没有意外修改 —— M3 是 web-agent-bridge spec 的纯 consumer，不能改协议。
+- [x] 6.1 跑 `cd runners/web-agent && npm run typecheck`：通过。
+- [x] 6.2 跑 `cd runners/web-agent && npm test`：所有 vitest 通过（16 codec + 6 client + 6 profile + 7 runtime = 35/35）。
+- [x] 6.3 跑 `cd lark-island && swift test`：24 测试 still pass（M3 不动 Swift 端，只是 sanity）。
+- [x] 6.4 检查 `runners/web-agent/src/bridge/codec.ts` 没有意外修改 —— `git log 891bb84..HEAD -- runners/web-agent/src/bridge/codec.ts` 仅显示 e43618b（M2 时创建）一条，无任何后续修改。M3 是 web-agent-bridge spec 的纯 consumer，协议没动。
 
 ## 7. 收尾
 
-- [ ] 7.1 跑 `npx @fission-ai/openspec validate m3-runner-socket-service` 干净通过。
-- [ ] 7.2 提交 commit（建议拆 3 个：`feat(runner): bridge client + profile resolver`、`feat(runner): agent runtime + screenshots`、`feat(runner): main entry + manual dispatcher`）。
-- [ ] 7.3 跑 `/opsx-archive m3-runner-socket-service` 把 spec 折叠到 `openspec/specs/web-agent-runner-service/spec.md` 并归档 change。
+- [x] 7.1 跑 `npx @fission-ai/openspec validate m3-runner-socket-service` 干净通过。
+- [x] 7.2 提交 commit（实际拆为 2 个：`e4dbce3 feat(runner): bridge client + profile resolver`、`96cd071 feat(runner): agent runtime + main entry + manual dispatcher`；原计划的"agent runtime + screenshots"和"main entry + manual dispatcher"两条合一以减少 commit 数）。
+- [ ] 7.3 跑 `/opsx-archive m3-runner-socket-service` 把 spec 折叠到 `openspec/specs/web-agent-runner-service/spec.md` 并归档 change。**留给用户在 IDE 中执行**。
