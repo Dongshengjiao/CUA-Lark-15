@@ -2,17 +2,17 @@
 
 ## 1. Bridge 客户端层
 
-- [ ] 1.1 新建 `runners/web-agent/src/bridge/client.ts`：基于 Node `node:net` 的 Unix domain socket 客户端类 `BridgeClient`，提供 `connect(socketPath)` / `send(envelope: BridgeEnvelope)` / `onEnvelope(handler)` / `onClose(handler)` / `close()` 接口；内部用 stream 累积 byte 直到 `\n` 边界，再交给 `decodeEnvelope()`。
-- [ ] 1.2 在 `BridgeClient.connect()` 内部实现握手：连接成功后 await 一帧 `BridgeHello` envelope，校验 `protocolVersion === 2`，否则 reject 一个 `BridgeProtocolMismatchError`。
-- [ ] 1.3 在 `runners/web-agent/src/bridge/index.ts` re-export `BridgeClient` 和新 error 类型。
-- [ ] 1.4 在 `runners/web-agent/test/bridge.test.ts` 加 `BridgeClient` 端到端测试：用 Node `net.createServer` 起一个内存 server、跑 hello 握手、发送命令、收事件。覆盖 hello v1 mismatch 退出路径。
+- [x] 1.1 新建 `runners/web-agent/src/bridge/client.ts`：基于 Node `node:net` 的 Unix domain socket 客户端类 `BridgeClient`，提供 `connect(socketPath)` / `send(envelope: BridgeEnvelope)` / `onEnvelope(handler)` / `onClose(handler)` / `close()` 接口；内部用 stream 累积 byte 直到 `\n` 边界，再交给 `decodeEnvelope()`。
+- [x] 1.2 在 `BridgeClient.connect()` 内部实现握手:连接成功后 await 一帧 `BridgeHello` envelope，校验 `protocolVersion === 2`，否则 reject 一个 `BridgeProtocolMismatchError`。
+- [x] 1.3 在 `runners/web-agent/src/bridge/index.ts` re-export `BridgeClient` 和新 error 类型。
+- [x] 1.4 在 `runners/web-agent/test/bridge-client.test.ts` 加 `BridgeClient` 端到端测试:用 Node `net.createServer` 起一个内存 server、跑 hello 握手、发送命令、收事件。覆盖 hello v1 mismatch 退出路径。
 
 ## 2. Profile 解析层
 
-- [ ] 2.1 新建 `runners/web-agent/src/profiles/index.ts`：导出 `resolveProfile(name: string | null | undefined): ResolvedProfile | ProfileResolutionError`。`ResolvedProfile` = `{baseURL, apiKey, model, family}`。
-- [ ] 2.2 实现 `qwen-default` 路径：从 `process.env.DASHSCOPE_API_KEY` 读 key；空字符串 / undefined 视为缺失。
-- [ ] 2.3 实现 unknown profile 与 missing key 两条 error 路径，每条返回带 `kind: "vlmError"` 字段的 `ProfileResolutionError`，方便 caller 直接转 `webAgentTaskFailed`。
-- [ ] 2.4 在 `runners/web-agent/test/profiles.test.ts` 加 vitest：4 个 case（默认 + null + 缺 key + 未知名）。
+- [x] 2.1 新建 `runners/web-agent/src/profiles/index.ts`：导出 `resolveProfile(name: string | null | undefined): ResolvedProfile | ProfileResolutionError`。`ResolvedProfile` = `{baseURL, apiKey, model, family}`。
+- [x] 2.2 实现 `qwen-default` 路径：从 `process.env.DASHSCOPE_API_KEY` 读 key；空字符串 / undefined 视为缺失。
+- [x] 2.3 实现 unknown profile 与 missing key 两条 error 路径，每条返回带 `kind: "vlmError"` 字段的 `ProfileResolutionError`，方便 caller 直接转 `webAgentTaskFailed`。
+- [x] 2.4 在 `runners/web-agent/test/profiles.test.ts` 加 vitest：4 个 case（默认 + null + 缺 key + 未知名），实际写了 6 case 还覆盖 undefined / 空字符串。
 
 ## 3. Agent runtime 层
 
