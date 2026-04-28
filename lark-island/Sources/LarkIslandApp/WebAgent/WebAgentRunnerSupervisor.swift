@@ -106,6 +106,13 @@ final class WebAgentRunnerSupervisor {
         proc.executableURL = invocation.executable
         proc.arguments = invocation.arguments
 
+        // Set the runner's cwd to its package root so the runner's own
+        // `dotenv/config` import picks up `runners/web-agent/.env`.
+        // scriptURL points at .../runners/web-agent/{src/runner.ts | dist/runner.js};
+        // its grandparent is the package root.
+        let packageRoot = scriptURL.deletingLastPathComponent().deletingLastPathComponent()
+        proc.currentDirectoryURL = packageRoot
+
         var env = ProcessInfo.processInfo.environment
         if let apiKey = apiKeyProvider(), !apiKey.isEmpty {
             env["DASHSCOPE_API_KEY"] = apiKey

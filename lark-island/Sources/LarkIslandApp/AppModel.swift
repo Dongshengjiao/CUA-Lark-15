@@ -164,6 +164,22 @@ final class AppModel {
                 self?.handleRunnerEvent(event)
             }
         }
+        // Observer-issued runWebAgentTask commands (used by automation
+        // tests, the lark-bot input channel, and any future remote
+        // dispatchers) are routed back into AppModel.startWebAgentTask
+        // so the same single-task-serial guard, profile resolution, and
+        // SessionState bookkeeping that the GUI uses is applied here.
+        bridgeServer.commandHandler = { [weak self] cmd in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch cmd {
+                case let .runWebAgentTask(taskID, prompt, _, profileName):
+                    self.startWebAgentTask(prompt: prompt, taskID: taskID, profileName: profileName)
+                default:
+                    break
+                }
+            }
+        }
         bridgeServer.routingViolationHandler = { violation in
             print("[bridge] routing violation: \(violation)")
         }
@@ -220,7 +236,22 @@ final class AppModel {
 
     // MARK: - Web-agent commands (group 6 fully wires these)
 
-    func startWebAgentTask(prompt: String) {
+    /// Dispatch a new web-agent task. Both the GUI input panel and the
+    /// observer commandHandler wire into this single entry point so
+    /// the single-task-serial guard, runner-availability check, and
+    /// profile resolution stay consistent across input sources.
+    ///
+    /// - Parameter taskID: Optional caller-provided ID. Used by
+    ///   automation tests and remote input channels (e.g. M5.5
+    ///   lark-bot) so they can correlate event envelopes back to the
+    ///   originating request. Defaults to a fresh UUID for the GUI.
+    /// - Parameter profileName: Optional profile override; defaults to
+    ///   the active profile from LLMProfileStore.
+    func startWebAgentTask(
+        prompt: String,
+        taskID: String? = nil,
+        profileName: String? = nil
+    ) {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -236,12 +267,13 @@ final class AppModel {
             return
         }
 
-        let taskID = UUID().uuidString
+        let resolvedTaskID = taskID ?? UUID().uuidString
+        let resolvedProfile = profileName ?? profileStore.defaultProfileName
         let command = BridgeCommand.runWebAgentTask(
-            taskID: taskID,
+            taskID: resolvedTaskID,
             prompt: trimmed,
             skill: nil,
-            profileName: profileStore.defaultProfileName
+            profileName: resolvedProfile
         )
         bridgeServer.sendToRunner(command)
         lastErrorMessage = nil

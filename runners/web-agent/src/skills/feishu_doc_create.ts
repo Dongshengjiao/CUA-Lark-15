@@ -38,23 +38,20 @@ export const feishu_doc_create: Skill = {
   id: 'feishu_doc_create',
   displayName: '飞书文档',
   matchKeywords: [
-    // 中文
-    '创建文档',
-    '新建文档',
-    '建文档',
-    '飞书文档',
-    '建个文档',
+    // 中文 — 高信号词
+    '文档',
+    '笔记',
     // 英文
-    'create doc',
-    'create document',
-    'new doc',
-    'new document',
+    'doc',
+    'document',
+    'note',
     'feishu doc',
     'lark doc',
   ],
   cookieDomain: '.feishu.cn',
   userDataDirSegment: 'feishu',
-  loginURL: 'https://passport.feishu.cn/',
+  // see feishu_im_send.ts — passport.feishu.cn 不是有效入口
+  loginURL: 'https://www.feishu.cn/drive/me/',
   startingURL: 'https://www.feishu.cn/drive/me/',
   systemPromptAddendum,
 };

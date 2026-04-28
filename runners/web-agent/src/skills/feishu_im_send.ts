@@ -49,12 +49,13 @@ export const feishu_im_send: Skill = {
   id: 'feishu_im_send',
   displayName: '飞书 IM',
   matchKeywords: [
-    // 中文
-    '发消息',
+    // 中文 — 高信号词（飞书消息场景一般至少含其中一个）
+    '消息',
+    '聊天',
+    'im',
     '发飞书',
     '飞书消息',
     '飞书发',
-    '给.*发',
     'lark消息',
     // 英文
     'feishu message',
@@ -62,10 +63,15 @@ export const feishu_im_send: Skill = {
     'lark im',
     'send im',
     'im send',
+    'chat',
   ],
   cookieDomain: '.feishu.cn',
   userDataDirSegment: 'feishu',
-  loginURL: 'https://passport.feishu.cn/',
+  // M5 实测发现 passport.feishu.cn/ 直接访问 404；飞书的"扫码登录"
+  // 是从 messenger / drive / calendar 这种登录态页面被自动 redirect
+  // 出来的。所以让 loginURL 直接指向 startingURL，让飞书前端自己接管
+  // 跳转到带二维码的登录页（同源 cookie 也直接落对了 user-data-dir）。
+  loginURL: 'https://www.feishu.cn/messenger/',
   startingURL: 'https://www.feishu.cn/messenger/',
   systemPromptAddendum,
 };

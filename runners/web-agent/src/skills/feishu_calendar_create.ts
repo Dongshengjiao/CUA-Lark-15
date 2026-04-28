@@ -45,22 +45,22 @@ export const feishu_calendar_create: Skill = {
   id: 'feishu_calendar_create',
   displayName: '飞书日历',
   matchKeywords: [
-    // 中文
-    '创建日程',
-    '新建日程',
-    '建日程',
-    '安排会议',
-    '日历创建',
+    // 中文 — 高信号词
+    '日程',
+    '日历',
+    '会议',
+    '排会',
     // 英文
-    'create calendar event',
-    'create event',
-    'schedule meeting',
+    'calendar',
+    'schedule',
+    'meeting',
     'feishu calendar',
     'lark calendar',
   ],
   cookieDomain: '.feishu.cn',
   userDataDirSegment: 'feishu',
-  loginURL: 'https://passport.feishu.cn/',
+  // see feishu_im_send.ts — passport.feishu.cn 不是有效入口
+  loginURL: 'https://calendar.feishu.cn/',
   startingURL: 'https://calendar.feishu.cn/',
   systemPromptAddendum,
 };
