@@ -65,7 +65,9 @@ public struct BridgeHello: Equatable, Codable, Sendable {
     public var protocolVersion: Int
     public var serverLabel: String
 
-    public init(protocolVersion: Int = 1, serverLabel: String = "local-bridge") {
+    /// M2: protocolVersion bumped 1 → 2 to advertise web-agent envelope kinds.
+    /// Runner clients refuse to send `webAgent*` envelopes if they see version < 2.
+    public init(protocolVersion: Int = 2, serverLabel: String = "lark-island-bridge") {
         self.protocolVersion = protocolVersion
         self.serverLabel = serverLabel
     }
@@ -73,6 +75,10 @@ public struct BridgeHello: Equatable, Codable, Sendable {
 
 public enum BridgeClientRole: String, Codable, Sendable {
     case observer
+    /// M2: a runner subprocess (e.g. runners/web-agent/) that produces
+    /// web-agent events. Excluded from BridgeServer.broadcast() so it
+    /// does not receive its own events back.
+    case webAgentRunner
 }
 
 public enum BridgeCommand: Equatable, Codable, Sendable {
@@ -80,6 +86,9 @@ public enum BridgeCommand: Equatable, Codable, Sendable {
     case requestQuestion(sessionID: String, prompt: QuestionPrompt)
     case resolvePermission(sessionID: String, resolution: PermissionResolution)
     case answerQuestion(sessionID: String, response: QuestionPromptResponse)
+    /// M2: app → runner dispatch. Carries no API keys — the runner
+    /// resolves `profileName` to credentials via its own keychain config.
+    case runWebAgentTask(taskID: String, prompt: String, skill: String?, profileName: String?)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -88,6 +97,9 @@ public enum BridgeCommand: Equatable, Codable, Sendable {
         case prompt
         case resolution
         case response
+        case taskID
+        case skill
+        case profileName
     }
 
     private enum CommandType: String, Codable {
@@ -95,6 +107,7 @@ public enum BridgeCommand: Equatable, Codable, Sendable {
         case requestQuestion
         case resolvePermission
         case answerQuestion
+        case runWebAgentTask
     }
 
     public init(from decoder: any Decoder) throws {
@@ -119,6 +132,13 @@ public enum BridgeCommand: Equatable, Codable, Sendable {
                 sessionID: try container.decode(String.self, forKey: .sessionID),
                 response: try container.decode(QuestionPromptResponse.self, forKey: .response)
             )
+        case .runWebAgentTask:
+            self = .runWebAgentTask(
+                taskID: try container.decode(String.self, forKey: .taskID),
+                prompt: try container.decode(String.self, forKey: .prompt),
+                skill: try container.decodeIfPresent(String.self, forKey: .skill),
+                profileName: try container.decodeIfPresent(String.self, forKey: .profileName)
+            )
         }
     }
 
@@ -141,6 +161,12 @@ public enum BridgeCommand: Equatable, Codable, Sendable {
             try container.encode(CommandType.answerQuestion, forKey: .type)
             try container.encode(sessionID, forKey: .sessionID)
             try container.encode(response, forKey: .response)
+        case let .runWebAgentTask(taskID, prompt, skill, profileName):
+            try container.encode(CommandType.runWebAgentTask, forKey: .type)
+            try container.encode(taskID, forKey: .taskID)
+            try container.encode(prompt, forKey: .prompt)
+            try container.encodeIfPresent(skill, forKey: .skill)
+            try container.encodeIfPresent(profileName, forKey: .profileName)
         }
     }
 }

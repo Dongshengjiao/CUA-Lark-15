@@ -160,6 +160,70 @@ public struct SessionState: Equatable, Sendable {
             session.questionPrompt = nil
             session.updatedAt = payload.timestamp
             upsert(session)
+
+        // MARK: - Web Agent (M2)
+
+        case let .webAgentTaskStarted(payload):
+            // taskID becomes the sessionID for this web-agent run.
+            let session = AgentSession(
+                id: payload.taskID,
+                title: payload.prompt,
+                tool: .webAgent,
+                origin: .live,
+                attachmentState: .attached,
+                phase: .running,
+                summary: payload.skill.map { "skill=\($0)" } ?? "general task",
+                updatedAt: payload.timestamp
+            )
+            upsert(session)
+
+        case let .webAgentStepUpdate(payload):
+            guard var session = sessionsByID[payload.taskID] else {
+                return
+            }
+            // Build a one-line summary the island UI can render: "step N · <action> · <thought head>".
+            let head = payload.thought.split(separator: "\n").first.map(String.init) ?? payload.thought
+            let trimmed = head.count > 80 ? String(head.prefix(77)) + "…" : head
+            let actionLabel = payload.actionType ?? "thinking"
+            session.summary = "step \(payload.stepIndex) · \(actionLabel) · \(trimmed)"
+            session.updatedAt = payload.timestamp
+            upsert(session)
+
+        case let .webAgentApprovalRequested(payload):
+            guard var session = sessionsByID[payload.taskID] else {
+                return
+            }
+            session.phase = .waitingForApproval
+            session.summary = payload.message
+            session.permissionRequest = PermissionRequest(
+                title: payload.kind,
+                summary: payload.message,
+                affectedPath: ""
+            )
+            session.updatedAt = payload.timestamp
+            upsert(session)
+
+        case let .webAgentTaskCompleted(payload):
+            guard var session = sessionsByID[payload.taskID] else {
+                return
+            }
+            session.phase = .completed
+            session.summary = payload.finalAnswer
+            session.permissionRequest = nil
+            session.questionPrompt = nil
+            session.updatedAt = payload.timestamp
+            upsert(session)
+
+        case let .webAgentTaskFailed(payload):
+            guard var session = sessionsByID[payload.taskID] else {
+                return
+            }
+            session.phase = .completed
+            session.summary = "\(payload.kind.rawValue): \(payload.message)"
+            session.permissionRequest = nil
+            session.questionPrompt = nil
+            session.updatedAt = payload.timestamp
+            upsert(session)
         }
     }
 

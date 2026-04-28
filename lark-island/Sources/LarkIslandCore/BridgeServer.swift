@@ -258,7 +258,7 @@ public final class BridgeServer: @unchecked Sendable {
         switch command {
         case let .registerClient(role):
             clients[id]?.role = role
-        case .requestQuestion, .resolvePermission, .answerQuestion:
+        case .requestQuestion, .resolvePermission, .answerQuestion, .runWebAgentTask:
             commandHandler?(command)
         }
     }

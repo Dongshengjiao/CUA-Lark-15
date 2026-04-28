@@ -2,23 +2,23 @@
 
 ## 1. Swift side — LarkIslandCore schema
 
-- [ ] 1.1 In [`Sources/LarkIslandCore/AgentEvent.swift`](../../../lark-island/Sources/LarkIslandCore/AgentEvent.swift), add 5 new payload structs (`WebAgentTaskStarted`, `WebAgentStepUpdate`, `WebAgentApprovalRequested`, `WebAgentTaskCompleted`, `WebAgentTaskFailed`) with the exact field set listed in `specs/web-agent-bridge/spec.md` Requirement "AgentEvent supports five web-agent cases"
-- [ ] 1.2 Add `WebAgentFailureKind` String enum with cases `vlmTimeout`, `vlmError`, `pageError`, `cancelled`; ensure Codable rawValue matches camelCase
-- [ ] 1.3 Add 5 new cases to the `AgentEvent` enum
-- [ ] 1.4 Update `AgentEvent.CodingKeys`, `EventType`, manual `init(from:)` and `encode(to:)` to handle the new cases (follow the existing pattern for `sessionStarted` etc.)
-- [ ] 1.5 In [`Sources/LarkIslandCore/BridgeTransport.swift`](../../../lark-island/Sources/LarkIslandCore/BridgeTransport.swift), add `case webAgentRunner` to `BridgeClientRole`
-- [ ] 1.6 Add `case runWebAgentTask(taskID: String, prompt: String, skill: String?, profileName: String?)` to `BridgeCommand` and update its CodingKeys / CommandType / `init(from:)` / `encode(to:)` (no apiKey field)
-- [ ] 1.7 Bump `BridgeHello.protocolVersion` default from `1` to `2`
+- [x] 1.1 In [`Sources/LarkIslandCore/AgentEvent.swift`](../../../lark-island/Sources/LarkIslandCore/AgentEvent.swift), add 5 new payload structs (`WebAgentTaskStarted`, `WebAgentStepUpdate`, `WebAgentApprovalRequested`, `WebAgentTaskCompleted`, `WebAgentTaskFailed`) with the exact field set listed in `specs/web-agent-bridge/spec.md` Requirement "AgentEvent supports five web-agent cases"
+- [x] 1.2 Add `WebAgentFailureKind` String enum with cases `vlmTimeout`, `vlmError`, `pageError`, `cancelled`; ensure Codable rawValue matches camelCase
+- [x] 1.3 Add 5 new cases to the `AgentEvent` enum
+- [x] 1.4 Update `AgentEvent.CodingKeys`, `EventType`, manual `init(from:)` and `encode(to:)` to handle the new cases (follow the existing pattern for `sessionStarted` etc.)
+- [x] 1.5 In [`Sources/LarkIslandCore/BridgeTransport.swift`](../../../lark-island/Sources/LarkIslandCore/BridgeTransport.swift), add `case webAgentRunner` to `BridgeClientRole`
+- [x] 1.6 Add `case runWebAgentTask(taskID: String, prompt: String, skill: String?, profileName: String?)` to `BridgeCommand` and update its CodingKeys / CommandType / `init(from:)` / `encode(to:)` (no apiKey field)
+- [x] 1.7 Bump `BridgeHello.protocolVersion` default from `1` to `2`
 
 ## 2. Swift side — SessionState reducer
 
-- [ ] 2.1 In [`Sources/LarkIslandCore/SessionState.swift`](../../../lark-island/Sources/LarkIslandCore/SessionState.swift) `apply(_:)`, add reducer paths for the 5 new web-agent events. `webAgentTaskStarted` upserts a new running session; `webAgentStepUpdate` updates summary + updatedAt only; `webAgentApprovalRequested` transitions to `.waitingForApproval`; `webAgentTaskCompleted` transitions to `.completed` with `finalAnswer` as summary; `webAgentTaskFailed` transitions to `.completed` with `kind: message` as summary
-- [ ] 2.2 Make sure the existing `removeInvisibleSessions` rule still works for completed web-agent sessions (it will, because `phase == .completed` is the trigger)
+- [x] 2.1 In [`Sources/LarkIslandCore/SessionState.swift`](../../../lark-island/Sources/LarkIslandCore/SessionState.swift) `apply(_:)`, add reducer paths for the 5 new web-agent events. `webAgentTaskStarted` upserts a new running session; `webAgentStepUpdate` updates summary + updatedAt only; `webAgentApprovalRequested` transitions to `.waitingForApproval`; `webAgentTaskCompleted` transitions to `.completed` with `finalAnswer` as summary; `webAgentTaskFailed` transitions to `.completed` with `kind: message` as summary
+- [x] 2.2 Make sure the existing `removeInvisibleSessions` rule still works for completed web-agent sessions (it will, because `phase == .completed` is the trigger)
 
 ## 3. Swift side — BridgeServer routing
 
-- [ ] 3.1 In [`Sources/LarkIslandCore/BridgeServer.swift`](../../../lark-island/Sources/LarkIslandCore/BridgeServer.swift) `handleCommand(_:fromClient:)`, add a switch case for `runWebAgentTask` that calls the registered `commandHandler` (same path as the other commands)
-- [ ] 3.2 Confirm `broadcast(_:)` already filters `client.role == .observer` so runners don't echo. Add a unit test if not yet covered.
+- [x] 3.1 In [`Sources/LarkIslandCore/BridgeServer.swift`](../../../lark-island/Sources/LarkIslandCore/BridgeServer.swift) `handleCommand(_:fromClient:)`, add a switch case for `runWebAgentTask` that calls the registered `commandHandler` (same path as the other commands)
+- [x] 3.2 Confirm `broadcast(_:)` already filters `client.role == .observer` so runners don't echo. Add a unit test if not yet covered.
 
 ## 4. Swift side — tests
 

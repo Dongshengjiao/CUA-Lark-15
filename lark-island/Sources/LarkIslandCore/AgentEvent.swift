@@ -140,6 +140,127 @@ public struct ActionableStateResolved: Equatable, Codable, Sendable {
     }
 }
 
+// MARK: - Web Agent events (M2)
+
+/// Closed taxonomy of web-agent task failures. The M4 island UI branches
+/// on this to decide whether to offer "Retry" (vlm*), "Restart browser"
+/// (pageError), or just dismiss (cancelled).
+public enum WebAgentFailureKind: String, Codable, Sendable, Equatable {
+    case vlmTimeout
+    case vlmError
+    case pageError
+    case cancelled
+}
+
+public struct WebAgentTaskStarted: Equatable, Codable, Sendable {
+    public var taskID: String
+    public var prompt: String
+    public var skill: String?
+    public var profileName: String
+    public var timestamp: Date
+
+    public init(taskID: String, prompt: String, skill: String? = nil, profileName: String, timestamp: Date) {
+        self.taskID = taskID
+        self.prompt = prompt
+        self.skill = skill
+        self.profileName = profileName
+        self.timestamp = timestamp
+    }
+}
+
+public struct WebAgentStepUpdate: Equatable, Codable, Sendable {
+    public var taskID: String
+    public var stepIndex: Int
+    public var thought: String
+    public var actionRaw: String?
+    public var actionType: String?
+    /// Absolute path or `file://` URL to a JPEG screenshot on disk. The
+    /// canonical write location is
+    /// `~/Library/Application Support/LarkIsland/web-agent/screenshots/<taskID>/<stepIndex>.jpg`,
+    /// but any user-readable path is accepted.
+    public var screenshotURL: String?
+    public var costMs: Int?
+    public var costTokens: Int?
+    public var timestamp: Date
+
+    public init(
+        taskID: String,
+        stepIndex: Int,
+        thought: String,
+        actionRaw: String? = nil,
+        actionType: String? = nil,
+        screenshotURL: String? = nil,
+        costMs: Int? = nil,
+        costTokens: Int? = nil,
+        timestamp: Date
+    ) {
+        self.taskID = taskID
+        self.stepIndex = stepIndex
+        self.thought = thought
+        self.actionRaw = actionRaw
+        self.actionType = actionType
+        self.screenshotURL = screenshotURL
+        self.costMs = costMs
+        self.costTokens = costTokens
+        self.timestamp = timestamp
+    }
+}
+
+public struct WebAgentApprovalRequested: Equatable, Codable, Sendable {
+    public var taskID: String
+    /// Free-form discriminator. M5 will use `"login_qr"` for the
+    /// first-time Feishu scan; future skills can introduce others.
+    public var kind: String
+    public var message: String
+    public var timestamp: Date
+
+    public init(taskID: String, kind: String, message: String, timestamp: Date) {
+        self.taskID = taskID
+        self.kind = kind
+        self.message = message
+        self.timestamp = timestamp
+    }
+}
+
+public struct WebAgentTaskCompleted: Equatable, Codable, Sendable {
+    public var taskID: String
+    public var finalAnswer: String
+    public var totalSteps: Int
+    public var totalTokens: Int
+    public var totalMs: Int
+    public var timestamp: Date
+
+    public init(
+        taskID: String,
+        finalAnswer: String,
+        totalSteps: Int,
+        totalTokens: Int,
+        totalMs: Int,
+        timestamp: Date
+    ) {
+        self.taskID = taskID
+        self.finalAnswer = finalAnswer
+        self.totalSteps = totalSteps
+        self.totalTokens = totalTokens
+        self.totalMs = totalMs
+        self.timestamp = timestamp
+    }
+}
+
+public struct WebAgentTaskFailed: Equatable, Codable, Sendable {
+    public var taskID: String
+    public var kind: WebAgentFailureKind
+    public var message: String
+    public var timestamp: Date
+
+    public init(taskID: String, kind: WebAgentFailureKind, message: String, timestamp: Date) {
+        self.taskID = taskID
+        self.kind = kind
+        self.message = message
+        self.timestamp = timestamp
+    }
+}
+
 public enum AgentEvent: Equatable, Codable, Sendable {
     case sessionStarted(SessionStarted)
     case activityUpdated(SessionActivityUpdated)
@@ -148,6 +269,12 @@ public enum AgentEvent: Equatable, Codable, Sendable {
     case sessionCompleted(SessionCompleted)
     case jumpTargetUpdated(JumpTargetUpdated)
     case actionableStateResolved(ActionableStateResolved)
+    // M2 web-agent additions:
+    case webAgentTaskStarted(WebAgentTaskStarted)
+    case webAgentStepUpdate(WebAgentStepUpdate)
+    case webAgentApprovalRequested(WebAgentApprovalRequested)
+    case webAgentTaskCompleted(WebAgentTaskCompleted)
+    case webAgentTaskFailed(WebAgentTaskFailed)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -158,6 +285,11 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case sessionCompleted
         case jumpTargetUpdated
         case actionableStateResolved
+        case webAgentTaskStarted
+        case webAgentStepUpdate
+        case webAgentApprovalRequested
+        case webAgentTaskCompleted
+        case webAgentTaskFailed
     }
 
     private enum EventType: String, Codable {
@@ -168,6 +300,11 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case sessionCompleted
         case jumpTargetUpdated
         case actionableStateResolved
+        case webAgentTaskStarted
+        case webAgentStepUpdate
+        case webAgentApprovalRequested
+        case webAgentTaskCompleted
+        case webAgentTaskFailed
     }
 
     public init(from decoder: any Decoder) throws {
@@ -190,6 +327,26 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case .actionableStateResolved:
             self = .actionableStateResolved(
                 try container.decode(ActionableStateResolved.self, forKey: .actionableStateResolved)
+            )
+        case .webAgentTaskStarted:
+            self = .webAgentTaskStarted(
+                try container.decode(WebAgentTaskStarted.self, forKey: .webAgentTaskStarted)
+            )
+        case .webAgentStepUpdate:
+            self = .webAgentStepUpdate(
+                try container.decode(WebAgentStepUpdate.self, forKey: .webAgentStepUpdate)
+            )
+        case .webAgentApprovalRequested:
+            self = .webAgentApprovalRequested(
+                try container.decode(WebAgentApprovalRequested.self, forKey: .webAgentApprovalRequested)
+            )
+        case .webAgentTaskCompleted:
+            self = .webAgentTaskCompleted(
+                try container.decode(WebAgentTaskCompleted.self, forKey: .webAgentTaskCompleted)
+            )
+        case .webAgentTaskFailed:
+            self = .webAgentTaskFailed(
+                try container.decode(WebAgentTaskFailed.self, forKey: .webAgentTaskFailed)
             )
         }
     }
@@ -219,6 +376,21 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case let .actionableStateResolved(payload):
             try container.encode(EventType.actionableStateResolved, forKey: .type)
             try container.encode(payload, forKey: .actionableStateResolved)
+        case let .webAgentTaskStarted(payload):
+            try container.encode(EventType.webAgentTaskStarted, forKey: .type)
+            try container.encode(payload, forKey: .webAgentTaskStarted)
+        case let .webAgentStepUpdate(payload):
+            try container.encode(EventType.webAgentStepUpdate, forKey: .type)
+            try container.encode(payload, forKey: .webAgentStepUpdate)
+        case let .webAgentApprovalRequested(payload):
+            try container.encode(EventType.webAgentApprovalRequested, forKey: .type)
+            try container.encode(payload, forKey: .webAgentApprovalRequested)
+        case let .webAgentTaskCompleted(payload):
+            try container.encode(EventType.webAgentTaskCompleted, forKey: .type)
+            try container.encode(payload, forKey: .webAgentTaskCompleted)
+        case let .webAgentTaskFailed(payload):
+            try container.encode(EventType.webAgentTaskFailed, forKey: .type)
+            try container.encode(payload, forKey: .webAgentTaskFailed)
         }
     }
 }
