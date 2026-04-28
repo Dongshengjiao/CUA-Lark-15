@@ -1,3 +1,7 @@
+// Modified by Lark Island contributors, 2026-04-28. Originally from open-vibe-island. See lark-island/NOTICE.md.
+// Stripped of all coding-agent metadata events (codex/claude/gemini/openCode/cursor),
+// retains only the generic session lifecycle events reusable for the web-agent product.
+
 import Foundation
 
 public struct SessionStarted: Equatable, Codable, Sendable {
@@ -9,11 +13,6 @@ public struct SessionStarted: Equatable, Codable, Sendable {
     public var summary: String
     public var timestamp: Date
     public var jumpTarget: JumpTarget?
-    public var codexMetadata: CodexSessionMetadata?
-    public var claudeMetadata: ClaudeSessionMetadata?
-    public var geminiMetadata: GeminiSessionMetadata?
-    public var openCodeMetadata: OpenCodeSessionMetadata?
-    public var cursorMetadata: CursorSessionMetadata?
     public var isRemote: Bool
 
     public init(
@@ -25,11 +24,6 @@ public struct SessionStarted: Equatable, Codable, Sendable {
         summary: String,
         timestamp: Date,
         jumpTarget: JumpTarget? = nil,
-        codexMetadata: CodexSessionMetadata? = nil,
-        claudeMetadata: ClaudeSessionMetadata? = nil,
-        geminiMetadata: GeminiSessionMetadata? = nil,
-        openCodeMetadata: OpenCodeSessionMetadata? = nil,
-        cursorMetadata: CursorSessionMetadata? = nil,
         isRemote: Bool = false
     ) {
         self.sessionID = sessionID
@@ -40,11 +34,6 @@ public struct SessionStarted: Equatable, Codable, Sendable {
         self.summary = summary
         self.timestamp = timestamp
         self.jumpTarget = jumpTarget
-        self.codexMetadata = codexMetadata
-        self.claudeMetadata = claudeMetadata
-        self.geminiMetadata = geminiMetadata
-        self.openCodeMetadata = openCodeMetadata
-        self.cursorMetadata = cursorMetadata
         self.isRemote = isRemote
     }
 }
@@ -105,24 +94,17 @@ public struct SessionCompleted: Equatable, Codable, Sendable {
     public var summary: String
     public var timestamp: Date
     public var isInterrupt: Bool?
-    /// When `true`, the agent session itself has ended (e.g. Claude Code's
-    /// `SessionEnd` hook). Distinguishes a full session teardown from a
-    /// turn-level completion (`Stop`/`StopFailure`) where the CLI is still
-    /// running and waiting for the next user prompt.
-    public var isSessionEnd: Bool?
 
     public init(
         sessionID: String,
         summary: String,
         timestamp: Date,
-        isInterrupt: Bool? = nil,
-        isSessionEnd: Bool? = nil
+        isInterrupt: Bool? = nil
     ) {
         self.sessionID = sessionID
         self.summary = summary
         self.timestamp = timestamp
         self.isInterrupt = isInterrupt
-        self.isSessionEnd = isSessionEnd
     }
 }
 
@@ -138,86 +120,6 @@ public struct JumpTargetUpdated: Equatable, Codable, Sendable {
     ) {
         self.sessionID = sessionID
         self.jumpTarget = jumpTarget
-        self.timestamp = timestamp
-    }
-}
-
-public struct SessionMetadataUpdated: Equatable, Codable, Sendable {
-    public var sessionID: String
-    public var codexMetadata: CodexSessionMetadata
-    public var timestamp: Date
-
-    public init(
-        sessionID: String,
-        codexMetadata: CodexSessionMetadata,
-        timestamp: Date
-    ) {
-        self.sessionID = sessionID
-        self.codexMetadata = codexMetadata
-        self.timestamp = timestamp
-    }
-}
-
-public struct ClaudeSessionMetadataUpdated: Equatable, Codable, Sendable {
-    public var sessionID: String
-    public var claudeMetadata: ClaudeSessionMetadata
-    public var timestamp: Date
-
-    public init(
-        sessionID: String,
-        claudeMetadata: ClaudeSessionMetadata,
-        timestamp: Date
-    ) {
-        self.sessionID = sessionID
-        self.claudeMetadata = claudeMetadata
-        self.timestamp = timestamp
-    }
-}
-
-public struct GeminiSessionMetadataUpdated: Equatable, Codable, Sendable {
-    public var sessionID: String
-    public var geminiMetadata: GeminiSessionMetadata
-    public var timestamp: Date
-
-    public init(
-        sessionID: String,
-        geminiMetadata: GeminiSessionMetadata,
-        timestamp: Date
-    ) {
-        self.sessionID = sessionID
-        self.geminiMetadata = geminiMetadata
-        self.timestamp = timestamp
-    }
-}
-
-public struct OpenCodeSessionMetadataUpdated: Equatable, Codable, Sendable {
-    public var sessionID: String
-    public var openCodeMetadata: OpenCodeSessionMetadata
-    public var timestamp: Date
-
-    public init(
-        sessionID: String,
-        openCodeMetadata: OpenCodeSessionMetadata,
-        timestamp: Date
-    ) {
-        self.sessionID = sessionID
-        self.openCodeMetadata = openCodeMetadata
-        self.timestamp = timestamp
-    }
-}
-
-public struct CursorSessionMetadataUpdated: Equatable, Codable, Sendable {
-    public var sessionID: String
-    public var cursorMetadata: CursorSessionMetadata
-    public var timestamp: Date
-
-    public init(
-        sessionID: String,
-        cursorMetadata: CursorSessionMetadata,
-        timestamp: Date
-    ) {
-        self.sessionID = sessionID
-        self.cursorMetadata = cursorMetadata
         self.timestamp = timestamp
     }
 }
@@ -245,11 +147,6 @@ public enum AgentEvent: Equatable, Codable, Sendable {
     case questionAsked(QuestionAsked)
     case sessionCompleted(SessionCompleted)
     case jumpTargetUpdated(JumpTargetUpdated)
-    case sessionMetadataUpdated(SessionMetadataUpdated)
-    case claudeSessionMetadataUpdated(ClaudeSessionMetadataUpdated)
-    case geminiSessionMetadataUpdated(GeminiSessionMetadataUpdated)
-    case openCodeSessionMetadataUpdated(OpenCodeSessionMetadataUpdated)
-    case cursorSessionMetadataUpdated(CursorSessionMetadataUpdated)
     case actionableStateResolved(ActionableStateResolved)
 
     private enum CodingKeys: String, CodingKey {
@@ -260,11 +157,6 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case questionAsked
         case sessionCompleted
         case jumpTargetUpdated
-        case sessionMetadataUpdated
-        case claudeSessionMetadataUpdated
-        case geminiSessionMetadataUpdated
-        case openCodeSessionMetadataUpdated
-        case cursorSessionMetadataUpdated
         case actionableStateResolved
     }
 
@@ -275,11 +167,6 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case questionAsked
         case sessionCompleted
         case jumpTargetUpdated
-        case sessionMetadataUpdated
-        case claudeSessionMetadataUpdated
-        case geminiSessionMetadataUpdated
-        case openCodeSessionMetadataUpdated
-        case cursorSessionMetadataUpdated
         case actionableStateResolved
     }
 
@@ -300,24 +187,6 @@ public enum AgentEvent: Equatable, Codable, Sendable {
             self = .sessionCompleted(try container.decode(SessionCompleted.self, forKey: .sessionCompleted))
         case .jumpTargetUpdated:
             self = .jumpTargetUpdated(try container.decode(JumpTargetUpdated.self, forKey: .jumpTargetUpdated))
-        case .sessionMetadataUpdated:
-            self = .sessionMetadataUpdated(try container.decode(SessionMetadataUpdated.self, forKey: .sessionMetadataUpdated))
-        case .claudeSessionMetadataUpdated:
-            self = .claudeSessionMetadataUpdated(
-                try container.decode(ClaudeSessionMetadataUpdated.self, forKey: .claudeSessionMetadataUpdated)
-            )
-        case .geminiSessionMetadataUpdated:
-            self = .geminiSessionMetadataUpdated(
-                try container.decode(GeminiSessionMetadataUpdated.self, forKey: .geminiSessionMetadataUpdated)
-            )
-        case .openCodeSessionMetadataUpdated:
-            self = .openCodeSessionMetadataUpdated(
-                try container.decode(OpenCodeSessionMetadataUpdated.self, forKey: .openCodeSessionMetadataUpdated)
-            )
-        case .cursorSessionMetadataUpdated:
-            self = .cursorSessionMetadataUpdated(
-                try container.decode(CursorSessionMetadataUpdated.self, forKey: .cursorSessionMetadataUpdated)
-            )
         case .actionableStateResolved:
             self = .actionableStateResolved(
                 try container.decode(ActionableStateResolved.self, forKey: .actionableStateResolved)
@@ -347,21 +216,6 @@ public enum AgentEvent: Equatable, Codable, Sendable {
         case let .jumpTargetUpdated(payload):
             try container.encode(EventType.jumpTargetUpdated, forKey: .type)
             try container.encode(payload, forKey: .jumpTargetUpdated)
-        case let .sessionMetadataUpdated(payload):
-            try container.encode(EventType.sessionMetadataUpdated, forKey: .type)
-            try container.encode(payload, forKey: .sessionMetadataUpdated)
-        case let .claudeSessionMetadataUpdated(payload):
-            try container.encode(EventType.claudeSessionMetadataUpdated, forKey: .type)
-            try container.encode(payload, forKey: .claudeSessionMetadataUpdated)
-        case let .geminiSessionMetadataUpdated(payload):
-            try container.encode(EventType.geminiSessionMetadataUpdated, forKey: .type)
-            try container.encode(payload, forKey: .geminiSessionMetadataUpdated)
-        case let .openCodeSessionMetadataUpdated(payload):
-            try container.encode(EventType.openCodeSessionMetadataUpdated, forKey: .type)
-            try container.encode(payload, forKey: .openCodeSessionMetadataUpdated)
-        case let .cursorSessionMetadataUpdated(payload):
-            try container.encode(EventType.cursorSessionMetadataUpdated, forKey: .type)
-            try container.encode(payload, forKey: .cursorSessionMetadataUpdated)
         case let .actionableStateResolved(payload):
             try container.encode(EventType.actionableStateResolved, forKey: .type)
             try container.encode(payload, forKey: .actionableStateResolved)
