@@ -27,8 +27,14 @@ struct IslandPanelView: View {
         model.notchStatus == .popping
     }
 
-    private var hasClosedPresence: Bool {
-        model.liveSessionCount > 0 || model.runnerOffline
+    /// Always true so the user sees a hanging silhouette even when
+    /// idle (matches vibeisland.app behavior). The wings show:
+    ///   - left: brand mark (animated when a task is running)
+    ///   - right: live session count, or a runner-status dot when idle.
+    private var hasClosedPresence: Bool { true }
+
+    private var showsCountBadge: Bool {
+        model.liveSessionCount > 0
     }
 
     private var hasClosedActivity: Bool {
@@ -235,10 +241,24 @@ struct IslandPanelView: View {
 
                 if hasClosedPresence {
                     let attentionBalance: CGFloat = attentionSession != nil ? 18 : 0
-                    ClosedCountBadge(
-                        liveCount: model.liveSessionCount,
-                        tint: attentionSession != nil ? phaseColor(attentionSession!.phase) : scoutTint
-                    )
+                    Group {
+                        if showsCountBadge {
+                            ClosedCountBadge(
+                                liveCount: model.liveSessionCount,
+                                tint: attentionSession != nil
+                                    ? phaseColor(attentionSession!.phase)
+                                    : scoutTint
+                            )
+                        } else {
+                            // Idle right wing: a simple status dot so the
+                            // island stays visibly asymmetric (logo on
+                            // the left + dot on the right) instead of
+                            // disappearing behind the notch.
+                            Circle()
+                                .fill(model.runnerOffline ? Color.red : Color.green)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
                     .frame(width: max(sideWidth, countBadgeWidth) + attentionBalance)
                 }
             }
