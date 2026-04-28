@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "hello": "tsx examples/hello.ts",
+    "start": "tsx src/runner.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
