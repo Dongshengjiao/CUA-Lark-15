@@ -37,38 +37,65 @@ struct IslandPanelView: View {
     }
 }
 
-// MARK: - Closed (pill) state
+// MARK: - Closed (pill) state — hanging-from-notch geometry
 
 private struct ClosedIslandView: View {
     let model: AppModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            statusDot
-            if let session = model.activeIslandCardSession,
-               !session.title.isEmpty {
-                Text(session.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            } else {
-                Text("Lark Island")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.78))
+        let notchSize = NSScreen.main?.notchSize
+            ?? CGSize(width: 210, height: 38)
+
+        // The pill must be wider than the notch and taller than the
+        // menu bar so the chrome's NotchShape draws a visible "hanging
+        // pill" silhouette: top edges tuck *under* the notch, the
+        // bottom expands outward into rounded corners that float below
+        // the menu bar. Without these extras the shape collapses
+        // exactly onto the notch and the user sees nothing.
+        let lateralOverhang: CGFloat = 12 // pill wider than notch on each side
+        let bottomOverhang: CGFloat = 18 // pill hangs this much below menu bar
+        let needsRoom = (model.activeIslandCardSession?.title.isEmpty == false)
+        let extraWidth: CGFloat = needsRoom ? 110 : 0
+
+        let pillWidth = notchSize.width + lateralOverhang * 2 + extraWidth
+        let pillHeight = notchSize.height + bottomOverhang
+
+        // The top `notchSize.height` of the pill is hidden behind the
+        // menu bar — it's drawn purely so NotchShape's concave top
+        // corners tuck flush with the notch. All visible content goes
+        // in the bottom `bottomOverhang` slice.
+        VStack(spacing: 0) {
+            // Spacer matching the menu-bar/notch height so the visible
+            // strip below is the only place we put content.
+            Color.clear.frame(height: notchSize.height)
+
+            HStack(spacing: 7) {
+                statusDot
+                if let session = model.activeIslandCardSession,
+                   !session.title.isEmpty {
+                    Text(session.title)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } else {
+                    Text("Lark Island")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
             }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .frame(width: pillWidth, height: pillHeight, alignment: .center)
         .background(
-            // Black capsule visually merges with the notch so the
-            // closed-state pill reads as one continuous "island"
-            // hanging from the menu bar.
-            Capsule(style: .continuous)
+            // NotchShape: concave top corners (tuck under the notch)
+            // and convex bottom corners (round outward like Apple's
+            // Dynamic Island).
+            NotchShape.closed
                 .fill(Color.black)
         )
-        .shadow(color: .black.opacity(0.35), radius: 6, y: 1)
-        .fixedSize()
+        .shadow(color: .black.opacity(0.55), radius: 7, y: 3)
     }
 
     @ViewBuilder
