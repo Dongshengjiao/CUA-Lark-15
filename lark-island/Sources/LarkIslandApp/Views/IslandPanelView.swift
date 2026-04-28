@@ -1,115 +1,252 @@
-// M4 task 3.4: rewritten as a minimal SwiftUI shell for the dynamic
-// island. The upstream 2375-line version was a session-list driven UI
-// for Claude Code / Codex / Cursor coding agents (with permission
-// approval cards, ask-question prompts, terminal jump rows, claude-usage
-// drawers, etc.). The web-agent product has a single linear task with
-// a prompt and step-by-step status, so the entire view collapses to:
-//   - closed state: small pill with status indicator + age
-//   - opened state: task card showing prompt, latest step, phase
-// Future M5 enhancements (interactive input bar, approvals UI) will be
-// added back as standalone view modules per task 4.x.
+// M4 (post-rewrite hardening): port the closed-state geometry from the
+// upstream open-vibe-island IslandPanelView so we get the
+// "hugs-the-notch" silhouette with a brand mark on the left, a count
+// badge on the right, and a smooth hover/open animation. This drops
+// the simplified Capsule/NotchShape variants the M4 minimal rewrite
+// shipped — the chrome was always meant to be used with this layout.
 
 import LarkIslandCore
 import SwiftUI
 
+// MARK: - Animation constants
+
+private let openAnimation: Animation = .spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
+private let closeAnimation: Animation = .smooth(duration: 0.3)
+
 struct IslandPanelView: View {
     let model: AppModel
 
-    var body: some View {
-        // The hosting NSPanel spans the full screen width (so opened-state
-        // task cards can use the resolved content width), but the visible
-        // chrome should be horizontally centered over the notch area and
-        // pinned to the screen top. Without `.frame(.., alignment: .top)`
-        // SwiftUI lays out from the leading-top corner of the hosting
-        // view and the pill drifts left of center.
-        Group {
-            switch model.notchStatus {
-            case .closed:
-                ClosedIslandView(model: model)
-            case .opened:
-                OpenedIslandView(model: model)
-            case .popping:
-                ClosedIslandView(model: model)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: model.notchStatus)
+    @State private var isHovering: Bool = false
+    @State private var hoverOpenTask: Task<Void, Never>?
+
+    private var isOpened: Bool {
+        model.notchStatus == .opened
     }
-}
 
-// MARK: - Closed (pill) state — hanging-from-notch geometry
+    private var isPopping: Bool {
+        model.notchStatus == .popping
+    }
 
-private struct ClosedIslandView: View {
-    let model: AppModel
+    private var hasClosedPresence: Bool {
+        model.liveSessionCount > 0 || model.runnerOffline
+    }
+
+    private var hasClosedActivity: Bool {
+        model.surfacedSessions.contains(where: { $0.phase == .running })
+    }
+
+    private var attentionSession: AgentSession? {
+        model.surfacedSessions.first(where: { $0.phase.requiresAttention })
+    }
+
+    private var scoutTint: Color {
+        if model.runnerOffline { return .red }
+        if let phase = attentionSession?.phase {
+            return phaseColor(phase)
+        }
+        if hasClosedActivity { return .blue }
+        return .mint
+    }
+
+    private var notchTransitionAnimation: Animation {
+        switch model.notchStatus {
+        case .opened: return openAnimation
+        case .closed: return closeAnimation
+        case .popping: return openAnimation
+        }
+    }
+
+    private var targetScreen: NSScreen? {
+        NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main
+    }
+
+    private var closedNotchWidth: CGFloat {
+        targetScreen?.notchSize.width ?? NSScreen.externalDisplayNotchWidth
+    }
+
+    private var closedNotchHeight: CGFloat {
+        targetScreen?.islandClosedHeight ?? 24
+    }
+
+    private var sideWidth: CGFloat {
+        max(0, closedNotchHeight - 12) + 10
+    }
+
+    private var countBadgeWidth: CGFloat {
+        let digits = max(1, "\(model.liveSessionCount)".count)
+        return CGFloat(digits) * 7 + 18
+    }
+
+    private var expansionWidth: CGFloat {
+        guard hasClosedPresence else { return 0 }
+        let leftWidth = sideWidth + (attentionSession != nil ? 18 : 0)
+        let rightWidth = max(sideWidth, countBadgeWidth) + (attentionSession != nil ? 18 : 0)
+        return leftWidth + rightWidth
+    }
 
     var body: some View {
-        let notchSize = NSScreen.main?.notchSize
-            ?? CGSize(width: 210, height: 38)
-
-        // The pill must be wider than the notch and taller than the
-        // menu bar so the chrome's NotchShape draws a visible "hanging
-        // pill" silhouette: top edges tuck *under* the notch, the
-        // bottom expands outward into rounded corners that float below
-        // the menu bar. Without these extras the shape collapses
-        // exactly onto the notch and the user sees nothing.
-        let lateralOverhang: CGFloat = 12 // pill wider than notch on each side
-        let bottomOverhang: CGFloat = 18 // pill hangs this much below menu bar
-        let needsRoom = (model.activeIslandCardSession?.title.isEmpty == false)
-        let extraWidth: CGFloat = needsRoom ? 110 : 0
-
-        let pillWidth = notchSize.width + lateralOverhang * 2 + extraWidth
-        let pillHeight = notchSize.height + bottomOverhang
-
-        // The top `notchSize.height` of the pill is hidden behind the
-        // menu bar — it's drawn purely so NotchShape's concave top
-        // corners tuck flush with the notch. All visible content goes
-        // in the bottom `bottomOverhang` slice.
-        VStack(spacing: 0) {
-            // Spacer matching the menu-bar/notch height so the visible
-            // strip below is the only place we put content.
-            Color.clear.frame(height: notchSize.height)
-
-            HStack(spacing: 7) {
-                statusDot
-                if let session = model.activeIslandCardSession,
-                   !session.title.isEmpty {
-                    Text(session.title)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                } else {
-                    Text("Lark Island")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                }
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                Color.clear
+                notchContent(availableSize: geometry.size)
+                    .frame(maxWidth: .infinity, alignment: .top)
             }
-            .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: pillWidth, height: pillHeight, alignment: .center)
-        .background(
-            // NotchShape: concave top corners (tuck under the notch)
-            // and convex bottom corners (round outward like Apple's
-            // Dynamic Island).
-            NotchShape.closed
-                .fill(Color.black)
-        )
-        .shadow(color: .black.opacity(0.55), radius: 7, y: 3)
+        .ignoresSafeArea()
+        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
-    private var statusDot: some View {
-        if model.runnerOffline {
-            Circle().fill(.red).frame(width: 8, height: 8)
-        } else if let session = model.activeIslandCardSession {
-            Circle().fill(color(for: session.phase)).frame(width: 8, height: 8)
-        } else {
-            Circle().fill(.gray.opacity(0.5)).frame(width: 8, height: 8)
+    private func notchContent(availableSize: CGSize) -> some View {
+        let panelShadowH = IslandChromeMetrics.openedShadowHorizontalInset
+        let panelShadowB = IslandChromeMetrics.openedShadowBottomInset
+        let layoutW = max(0, availableSize.width - panelShadowH * 2)
+        let layoutH = max(0, availableSize.height - panelShadowB)
+
+        let outerH: CGFloat = 28
+        let outerB: CGFloat = 14
+        let openedW = max(0, layoutW - outerH)
+        let openedH = max(closedNotchHeight, layoutH - outerB)
+
+        let closedW = closedNotchWidth + expansionWidth + (isPopping ? 18 : 0)
+        let closedH = closedNotchHeight
+
+        let usesOpened = isOpened
+        let currentW = usesOpened ? openedW : closedW
+        let currentH = usesOpened ? openedH : closedH
+
+        let hInset: CGFloat = usesOpened ? 14 : 0
+        let bInset: CGFloat = usesOpened ? 14 : 0
+        let surfaceW = currentW + hInset * 2
+        let surfaceH = currentH + bInset
+
+        let surface = NotchShape(
+            topCornerRadius: usesOpened ? NotchShape.openedTopRadius : NotchShape.closedTopRadius,
+            bottomCornerRadius: usesOpened ? NotchShape.openedBottomRadius : NotchShape.closedBottomRadius
+        )
+
+        VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                surface
+                    .fill(Color.black)
+                    .frame(width: surfaceW, height: surfaceH)
+
+                VStack(spacing: 0) {
+                    headerRow
+                        .frame(height: closedNotchHeight)
+
+                    if usesOpened {
+                        OpenedTaskBody(model: model)
+                            .frame(width: openedW - 24)
+                            .frame(maxHeight: max(0, currentH - closedNotchHeight - 12), alignment: .top)
+                            .clipped()
+                    }
+                }
+                .frame(width: currentW, height: currentH, alignment: .top)
+                .padding(.horizontal, hInset)
+                .padding(.bottom, bInset)
+                .clipShape(surface)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.black)
+                        .frame(height: 1)
+                        .padding(.horizontal, usesOpened ? NotchShape.openedTopRadius : NotchShape.closedTopRadius)
+                }
+                .overlay {
+                    surface
+                        .stroke(Color.white.opacity(usesOpened ? 0.07 : 0.04), lineWidth: 1)
+                }
+            }
+            .frame(width: surfaceW, height: surfaceH, alignment: .top)
+        }
+        .scaleEffect(
+            usesOpened ? 1 : (isHovering ? IslandChromeMetrics.closedHoverScale : 1),
+            anchor: .top
+        )
+        .padding(.horizontal, panelShadowH)
+        .padding(.bottom, panelShadowB)
+        .animation(notchTransitionAnimation, value: model.notchStatus)
+        .animation(.smooth, value: hasClosedPresence)
+        .animation(.smooth, value: expansionWidth)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
+                isHovering = hovering
+            }
+            handleHoverChange(hovering: hovering)
+        }
+        .onTapGesture {
+            if !isOpened {
+                hoverOpenTask?.cancel()
+                model.notchOpen(reason: .click)
+            }
         }
     }
 
-    private func color(for phase: SessionPhase) -> Color {
+    // MARK: - Hover-to-open
+
+    private func handleHoverChange(hovering: Bool) {
+        hoverOpenTask?.cancel()
+        guard hovering, !isOpened else {
+            if !hovering, isOpened, model.notchOpenReason == .hover {
+                model.notchClose()
+            }
+            return
+        }
+        let delay = AppModel.hoverOpenDelay
+        hoverOpenTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, isHovering, !isOpened else { return }
+            model.notchOpen(reason: .hover)
+        }
+    }
+
+    // MARK: - Header row (the closed-state silhouette)
+
+    @ViewBuilder
+    private var headerRow: some View {
+        if isOpened {
+            OpenedHeader(model: model)
+                .frame(height: closedNotchHeight)
+        } else {
+            HStack(spacing: 0) {
+                if hasClosedPresence {
+                    HStack(spacing: 4) {
+                        LarkIslandBrandMark(
+                            size: 14,
+                            tint: scoutTint,
+                            isAnimating: hasClosedActivity,
+                            style: .duotone
+                        )
+                        if let phase = attentionSession?.phase {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(phaseColor(phase))
+                        }
+                    }
+                    .frame(width: sideWidth + 8 + (attentionSession != nil ? 18 : 0))
+                }
+
+                // Center black rectangle that aligns with the physical notch.
+                Rectangle()
+                    .fill(Color.black)
+                    .frame(width: closedNotchWidth - NotchShape.closedTopRadius + (isPopping ? 18 : 0))
+
+                if hasClosedPresence {
+                    let attentionBalance: CGFloat = attentionSession != nil ? 18 : 0
+                    ClosedCountBadge(
+                        liveCount: model.liveSessionCount,
+                        tint: attentionSession != nil ? phaseColor(attentionSession!.phase) : scoutTint
+                    )
+                    .frame(width: max(sideWidth, countBadgeWidth) + attentionBalance)
+                }
+            }
+            .frame(height: closedNotchHeight)
+        }
+    }
+
+    private func phaseColor(_ phase: SessionPhase) -> Color {
         switch phase {
         case .running: return .blue
         case .waitingForApproval: return .orange
@@ -119,135 +256,127 @@ private struct ClosedIslandView: View {
     }
 }
 
-// MARK: - Opened (expanded card) state
+// MARK: - Closed count badge (right side of closed notch)
 
-private struct OpenedIslandView: View {
+private struct ClosedCountBadge: View {
+    let liveCount: Int
+    let tint: Color
+
+    var body: some View {
+        Text("\(liveCount)")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Color(red: 0.14, green: 0.14, blue: 0.15), in: Capsule())
+    }
+}
+
+// MARK: - Opened state header (compact bar above the body)
+
+private struct OpenedHeader: View {
     let model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let session = model.activeIslandCardSession {
-                taskHeader(session: session)
-                Divider().opacity(0.18)
-                taskBody(session: session)
-            } else {
-                idleHeader
-            }
-
-            if model.runnerOffline {
-                runnerOfflineBanner
-            }
+        HStack(spacing: 8) {
+            LarkIslandBrandMark(size: 14, tint: .mint, isAnimating: false, style: .duotone)
+            Text("Lark Island")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.92))
+            Spacer()
+            Text(model.activeProfileName)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.55))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Color.white.opacity(0.08), in: Capsule())
         }
-        .padding(14)
-        .frame(width: 360)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.black.opacity(0.92))
-        )
-        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
 
-    private var idleHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Lark Island")
-                    .font(.headline)
-                Spacer()
-                Text(model.activeProfileName)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-            Text("No active task. Open the menu bar to start one.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
+// MARK: - Opened state body (task card or idle hint)
+
+private struct OpenedTaskBody: View {
+    let model: AppModel
+
+    var body: some View {
+        if let session = model.activeIslandCardSession {
+            taskCard(session)
+        } else {
+            idleHint
         }
     }
 
     @ViewBuilder
-    private func taskHeader(session: AgentSession) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func taskCard(_ session: AgentSession) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                phaseLabel(for: session.phase)
+                phasePill(session.phase)
                 Spacer()
                 Text(session.spotlightAgeBadge)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.5))
             }
-            Text(session.title.isEmpty ? "(untitled task)" : session.title)
-                .font(.body.weight(.semibold))
-                .lineLimit(2)
-        }
-    }
 
-    @ViewBuilder
-    private func taskBody(session: AgentSession) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+            Text(session.title.isEmpty ? "(untitled task)" : session.title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+
             if !session.summary.isEmpty {
                 Text(session.summary)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(4)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .lineLimit(3)
             }
 
             if let req = session.permissionRequest {
-                approvalRow(request: req)
+                Label(req.summary, systemImage: "lock.shield")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .lineLimit(2)
             }
 
             if let q = session.questionPrompt {
-                questionRow(prompt: q)
+                Label(q.title, systemImage: "questionmark.bubble")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+                    .lineLimit(2)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 6)
     }
 
-    private func approvalRow(request: PermissionRequest) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "lock.shield")
-                .foregroundStyle(.orange)
-            Text("Approval needed: \(request.summary)")
+    private var idleHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("No active task.")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+            Text("Click the menu bar globe to start one.")
                 .font(.caption)
-                .lineLimit(2)
+                .foregroundStyle(.white.opacity(0.55))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 6)
     }
 
-    private func questionRow(prompt: QuestionPrompt) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "questionmark.bubble")
-                .foregroundStyle(.yellow)
-            Text(prompt.title)
-                .font(.caption)
-                .lineLimit(2)
-        }
-    }
-
-    private func phaseLabel(for phase: SessionPhase) -> some View {
-        let text: String
+    private func phasePill(_ phase: SessionPhase) -> some View {
+        let label: String
         let color: Color
         switch phase {
-        case .running:             text = "RUNNING";  color = .blue
-        case .waitingForApproval:  text = "APPROVAL"; color = .orange
-        case .waitingForAnswer:    text = "QUESTION"; color = .yellow
-        case .completed:           text = "DONE";     color = .green
+        case .running:            label = "RUNNING";  color = .blue
+        case .waitingForApproval: label = "APPROVAL"; color = .orange
+        case .waitingForAnswer:   label = "QUESTION"; color = .yellow
+        case .completed:          label = "DONE";     color = .green
         }
-        return Text(text)
-            .font(.system(size: 10, weight: .heavy, design: .rounded))
+        return Text(label)
+            .font(.system(size: 9.5, weight: .heavy, design: .rounded))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(color.opacity(0.22), in: Capsule())
             .foregroundStyle(color)
-    }
-
-    private var runnerOfflineBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-            Text("Runner offline. Restart from Settings.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.85))
-        }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.red.opacity(0.18))
-        )
     }
 }
