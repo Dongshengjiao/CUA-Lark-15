@@ -39,13 +39,10 @@ async function main() {
     process.exit(1);
   }
 
-  // 2) Register role so BridgeServer excludes us from event broadcast.
-  client.send({
-    type: 'command',
-    command: { type: 'registerClient', role: 'webAgentRunner' },
-  });
-
-  // 3) Launch Chromium ONCE for the whole runner lifetime.
+  // 2) Launch Chromium ONCE before exposing ourselves to the dispatcher.
+  // Order matters: if we registered first, the peer would immediately
+  // start sending runWebAgentTask commands while Chromium was still
+  // launching — the runner.runTask path needs a live LocalBrowser.
   let browser: LocalBrowser;
   try {
     logger.info('launching headless Chromium...');
@@ -65,7 +62,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 4) Build runtime over (sink=client, browser=Chromium).
+  // 3) Build runtime over (sink=client, browser=Chromium).
   const runtime = new AgentRuntime({
     sink: client,
     browser,
@@ -74,12 +71,17 @@ async function main() {
     vlmTimeoutMs: 180_000,
   });
 
-  // 5) Single-task-serial guard.
+  // 4) Single-task-serial guard.
   let currentTaskID: string | null = null;
   const onTaskFinished = () => {
     currentTaskID = null;
   };
 
+  // 5) Register envelope handler BEFORE announcing ourselves. Otherwise
+  // the dispatcher can race past registerClient and emit
+  // runWebAgentTask before BridgeClient knows where to deliver it
+  // (envelopeHandler? would be null and the frame silently dropped
+  // by the post-handshake reader).
   client.onEnvelope((env) => {
     if (env.type !== 'command') return;
     handleCommand(env.command);
@@ -94,6 +96,13 @@ async function main() {
     }
     process.exit(1);
   });
+
+  // 6) Now safe to advertise ourselves — handler armed, browser ready.
+  client.send({
+    type: 'command',
+    command: { type: 'registerClient', role: 'webAgentRunner' },
+  });
+  logger.info('registered as webAgentRunner; ready for tasks');
 
   function handleCommand(command: BridgeCommand): void {
     if (command.type !== 'runWebAgentTask') {
