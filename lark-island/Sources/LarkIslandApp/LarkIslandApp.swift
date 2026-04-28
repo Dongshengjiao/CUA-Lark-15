@@ -1,151 +1,45 @@
+// M4: minimal LarkIslandApp entry point.
+//
+// Differs from the upstream Open Island AppDelegate: no harness runtime
+// monitor, no debug-scenario snapshot loading, no startup ceremony around
+// hooks installation. The web-agent product just needs:
+//   1. the menu bar / dock activation policy
+//   2. a single AppModel that owns BridgeServer + RunnerSupervisor
+//   3. SwiftUI scene wiring for Settings (group 4) — no main window
+// Everything else (overlay window, runner spawn, BridgeServer listen)
+// is set up by AppModel.startIfNeeded().
+
 import AppKit
 import SwiftUI
+
+@main
+struct LarkIslandApp: App {
+    @NSApplicationDelegateAdaptor(LarkIslandAppDelegate.self) private var delegate
+
+    var body: some Scene {
+        // Minimal scene; the real UI lives in the menu bar extra and the
+        // overlay panel. Settings are added in M4 group 4.
+        Settings {
+            EmptyView()
+        }
+    }
+}
 
 @MainActor
 final class LarkIslandAppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
-    private let harnessLaunchConfiguration = HarnessLaunchConfiguration()
-    private let launchedAt = Date()
-    private lazy var harnessRuntimeMonitor = HarnessRuntimeMonitor(launchedAt: launchedAt)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         ProcessInfo.processInfo.disableAutomaticTermination(
-            "Open Island should remain active while monitoring local agent sessions."
+            "Lark Island stays active while the web-agent runner is alive."
         )
         ProcessInfo.processInfo.disableSuddenTermination()
+
         NSApp.setActivationPolicy(model.showDockIcon ? .regular : .accessory)
-        harnessRuntimeMonitor.recordMilestone("applicationDidFinishLaunching")
-
-        DispatchQueue.main.async { [self] in
-            harnessRuntimeMonitor.recordMilestone("bootstrapStarted")
-            model.harnessRuntimeMonitor = harnessRuntimeMonitor
-            harnessRuntimeMonitor.recordLog(model.lastActionMessage)
-
-            model.ignoresPointerExitDuringHarness = harnessLaunchConfiguration.scenario != nil
-            model.disablesOverlayEventMonitoringDuringHarness = harnessLaunchConfiguration.scenario != nil
-            model.startIfNeeded(
-                startBridge: harnessLaunchConfiguration.shouldStartBridge,
-                shouldPerformBootAnimation: harnessLaunchConfiguration.shouldPerformBootAnimation,
-                loadRuntimeState: harnessLaunchConfiguration.scenario == nil
-            )
-            harnessRuntimeMonitor.recordMilestone("modelStarted")
-
-            if let scenario = harnessLaunchConfiguration.scenario {
-                model.loadDebugSnapshot(
-                    scenario.snapshot(),
-                    presentOverlay: harnessLaunchConfiguration.presentOverlay
-                )
-            }
-
-            // Hide all windows on launch — settings and debug open on demand only.
-            LarkIslandAppDelegate.hideAllAppWindows()
-
-            if harnessLaunchConfiguration.shouldShowControlCenter,
-               harnessLaunchConfiguration.scenario != nil {
-                model.showControlCenter()
-                harnessRuntimeMonitor.recordMilestone("controlCenterConfigured", message: "shown")
-            } else {
-                harnessRuntimeMonitor.recordMilestone("controlCenterConfigured", message: "hidden")
-            }
-
-            harnessRuntimeMonitor.recordMilestone("bootstrapCompleted")
-
-            if let captureDelay = harnessLaunchConfiguration.captureDelay,
-               harnessLaunchConfiguration.artifactDirectoryURL != nil {
-                harnessRuntimeMonitor.recordMilestone(
-                    "captureScheduled",
-                    message: String(format: "%.3fs", captureDelay)
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + captureDelay) { [self] in
-                    harnessRuntimeMonitor.recordMilestone("captureStarted")
-                    try? HarnessArtifactRecorder.record(
-                        configuration: harnessLaunchConfiguration,
-                        model: model,
-                        launchedAt: launchedAt,
-                        runtimeMonitor: harnessRuntimeMonitor
-                    )
-                }
-            }
-
-            if let autoExitAfter = harnessLaunchConfiguration.autoExitAfter {
-                harnessRuntimeMonitor.recordMilestone(
-                    "autoExitScheduled",
-                    message: String(format: "%.3fs", autoExitAfter)
-                )
-                DispatchQueue.main.asyncAfter(deadline: .now() + autoExitAfter) {
-                    NSApp.terminate(nil)
-                }
-            }
-        }
+        model.startIfNeeded()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        false
-    }
-
-    private static func hideAllAppWindows() {
-        for window in NSApp.windows where !window.className.contains("MenuBarExtra") {
-            window.orderOut(nil)
-        }
-    }
-
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        model.showSettings()
-        return false
-    }
-}
-
-@main
-struct LarkIslandApp: App {
-    @NSApplicationDelegateAdaptor(LarkIslandAppDelegate.self)
-    private var appDelegate
-
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some Scene {
-        Window("Open Island Settings", id: "settings") {
-            SettingsWindowContent(model: appDelegate.model)
-        }
-        .windowResizability(.contentMinSize)
-        .commands {
-            CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
-                    openWindow(id: "settings")
-                    appDelegate.model.showSettings()
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
-        }
-
-        #if DEBUG
-        WindowGroup("Open Island Debug") {
-            ControlCenterView(model: appDelegate.model)
-        }
-        #endif
-
-        MenuBarExtra {
-            MenuBarContentView(model: appDelegate.model)
-        } label: {
-            LarkIslandBrandMark(size: 18, style: .template)
-                .accessibilityLabel("Open Island")
-        }
-        .menuBarExtraStyle(.window)
-    }
-}
-
-/// Injects the SwiftUI `openWindow` action into `AppModel` so that
-/// `model.showSettings()` can materialize the window even if it has
-/// never been shown before (SwiftUI `Window` scenes are lazy).
-private struct SettingsWindowContent: View {
-    var model: AppModel
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        SettingsView(model: model)
-            .onAppear {
-                model.openSettingsWindow = { [openWindow] in
-                    openWindow(id: "settings")
-                }
-            }
+    func applicationWillTerminate(_ notification: Notification) {
+        model.shutdown()
     }
 }

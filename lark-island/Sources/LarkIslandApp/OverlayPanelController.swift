@@ -607,7 +607,7 @@ final class OverlayPanelController {
     private func completionBodyHeight(for session: AgentSession, model: AppModel) -> CGFloat {
         let headerHeight: CGFloat = 44
 
-        let text = (session.completionAssistantMessageText ?? session.summary)
+        let text = (session.summary)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !text.isEmpty else {
@@ -622,8 +622,11 @@ final class OverlayPanelController {
             attributes: [.font: font]
         )
         let markdownHeight = min(260, ceil(textSize.height) + 20)
-        // Reply input: divider (1) + input bar padding+content (~52)
-        let replyInputHeight: CGFloat = TerminalTextSender.canReply(to: session, enabled: model.completionReplyEnabled) ? 53 : 0
+        // M4: completion-reply was a coding-agent feature wired to
+        // TerminalTextSender (deleted in M0b). Web-agent overlays don't
+        // have an inline reply input, so reply height is always 0.
+        let replyInputHeight: CGFloat = 0
+        _ = session // silence unused-binding warning if any
         return headerHeight + 1 + markdownHeight + replyInputHeight
     }
 
@@ -662,7 +665,7 @@ final class OverlayPanelController {
             return Self.completionCardMinHeight
         }
 
-        let text = (session.completionAssistantMessageText ?? session.summary)
+        let text = (session.summary)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Estimate text height using NSString measurement with the actual font.

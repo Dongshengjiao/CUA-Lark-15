@@ -42,8 +42,10 @@ final class OverlayUICoordinator {
     @ObservationIgnored
     var ignoresPointerExitAccessor: (() -> Bool)?
 
-    @ObservationIgnored
-    var harnessRuntimeMonitor: HarnessRuntimeMonitor?
+    // M0b deleted HarnessRuntimeMonitor; the field is gone but we keep
+    // the no-op shim below so anything inside this coordinator that
+    // previously called `harnessRuntimeMonitor?.recordMilestone(...)`
+    // compiles into a noop.
 
     @ObservationIgnored
     let overlayPanelController = OverlayPanelController()
@@ -371,46 +373,10 @@ final class OverlayUICoordinator {
         }
     }
 
-    // MARK: - Debug snapshots (overlay portion)
-
-    func applyOverlayState(from snapshot: IslandDebugSnapshot, presentOverlay: Bool, autoCollapseNotificationCards: Bool) {
-        notificationAutoCollapseTask?.cancel()
-        notificationAutoCollapseTask = nil
-        autoCollapseSurfaceHasBeenEntered = false
-
-        islandSurface = snapshot.islandSurface
-        notchStatus = snapshot.notchStatus
-        notchOpenReason = snapshot.notchOpenReason
-
-        if autoCollapseNotificationCards {
-            updateNotificationAutoCollapse()
-        }
-
-        guard presentOverlay, let appModel else {
-            return
-        }
-
-        // Immediate interactivity update.
-        let interactive = snapshot.notchStatus == .opened
-        overlayPanelController.setInteractive(interactive)
-
-        // Defer AppKit panel animation to the next run-loop iteration.
-        overlayTransitionGeneration &+= 1
-        let capturedGeneration = overlayTransitionGeneration
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.overlayTransitionGeneration == capturedGeneration else { return }
-            switch snapshot.notchStatus {
-            case .opened:
-                self.overlayPlacementDiagnostics = self.overlayPanelController.show(
-                    model: appModel,
-                    preferredScreenID: self.preferredOverlayScreenID
-                )
-            case .closed, .popping:
-                self.refreshOverlayPlacement()
-            }
-            self.harnessRuntimeMonitor?.recordMilestone("overlayPresented", message: snapshot.title)
-        }
-    }
+    // MARK: - Debug snapshots
+    // (M0b removed IslandDebugSnapshot / IslandDebugScenario along with
+    // the harness runtime monitor. The web-agent product does not need a
+    // way to inject synthetic island states.)
 
     // MARK: - Persistence
 
