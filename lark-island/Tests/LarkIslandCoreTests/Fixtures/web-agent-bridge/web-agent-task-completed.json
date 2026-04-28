@@ -1,0 +1,1 @@
+{"event":{"type":"webAgentTaskCompleted","webAgentTaskCompleted":{"timestamp":1730000000000,"finalAnswer":"Sent message 'hello' to 张三 at 16:45.","totalTokens":12345,"taskID":"task-001","totalSteps":8,"totalMs":51836}},"type":"event"}

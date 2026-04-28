@@ -1,0 +1,1 @@
+{"type":"event","event":{"webAgentApprovalRequested":{"kind":"login_qr","timestamp":1730000000000,"message":"请扫描浏览器中的二维码登录飞书","taskID":"task-001"},"type":"webAgentApprovalRequested"}}

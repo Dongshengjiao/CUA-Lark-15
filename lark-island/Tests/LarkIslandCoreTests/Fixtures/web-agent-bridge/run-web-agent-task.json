@@ -1,0 +1,1 @@
+{"type":"command","command":{"profileName":"qwen-default","taskID":"task-001","skill":"feishu_im_send","prompt":"give 张三 a Lark message saying hello","type":"runWebAgentTask"}}

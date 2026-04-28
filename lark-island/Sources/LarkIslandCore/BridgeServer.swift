@@ -226,21 +226,17 @@ public final class BridgeServer: @unchecked Sendable {
         guard let client = clients[id] else { return }
         var remaining = client.buffer
 
-        while let newlineIndex = remaining.firstIndex(of: 0x0A) {
-            let frame = remaining[remaining.startIndex..<newlineIndex]
-            remaining = remaining[remaining.index(after: newlineIndex)...]
-
-            guard !frame.isEmpty else { continue }
-            do {
-                let envelope = try JSONDecoder().decode(BridgeEnvelope.self, from: Data(frame))
+        do {
+            let envelopes = try BridgeCodec.decodeLines(from: &remaining)
+            for envelope in envelopes {
                 handleEnvelope(envelope, fromClient: id)
-            } catch {
-                // Drop malformed frames silently — this is a best-effort
-                // local IPC, not a security boundary.
             }
+        } catch {
+            // Drop malformed frames silently — this is a best-effort
+            // local IPC, not a security boundary.
         }
 
-        clients[id]?.buffer = Data(remaining)
+        clients[id]?.buffer = remaining
     }
 
     private func handleEnvelope(_ envelope: BridgeEnvelope, fromClient id: UUID) {
@@ -265,8 +261,10 @@ public final class BridgeServer: @unchecked Sendable {
 
     private func writeEnvelope(_ envelope: BridgeEnvelope, to fileDescriptor: Int32) {
         do {
-            var data = try JSONEncoder().encode(envelope)
-            data.append(0x0A)  // newline-delimited
+            // Use BridgeCodec so encoding stays in lockstep with
+            // BridgeCodec.decodeLines (millisecondsSince1970 dates,
+            // newline-terminated).
+            let data = try BridgeCodec.encodeLine(envelope)
 
             data.withUnsafeBytes { rawBuffer in
                 guard let baseAddress = rawBuffer.baseAddress else { return }

@@ -1,0 +1,1 @@
+{"type":"event","event":{"type":"webAgentTaskFailed","webAgentTaskFailed":{"timestamp":1730000000000,"taskID":"task-001","message":"Request to qwen3-vl-plus timed out after 180000ms","kind":"vlmTimeout"}}}

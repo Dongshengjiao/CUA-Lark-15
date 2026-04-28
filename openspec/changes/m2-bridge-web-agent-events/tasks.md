@@ -22,9 +22,9 @@
 
 ## 4. Swift side — tests
 
-- [ ] 4.1 Create [`Tests/LarkIslandCoreTests/WebAgentEventTests.swift`](../../../lark-island/Tests/LarkIslandCoreTests/WebAgentEventTests.swift) using swift-testing's `@Test`. Include round-trip tests for each of the 5 new event cases + `runWebAgentTask` command + role hello. Use deterministic `Date(timeIntervalSince1970: 1_730_000_000)` to keep fixtures stable.
-- [ ] 4.2 Save canonical encoded JSON for each case to `Tests/LarkIslandCoreTests/Fixtures/web-agent-bridge/<case>.json`. Both Swift tests and TS tests read the same files — this is the schema-drift detector.
-- [ ] 4.3 Run `cd lark-island && swift test`; all tests pass
+- [x] 4.1 Create [`Tests/LarkIslandCoreTests/WebAgentEventTests.swift`](../../../lark-island/Tests/LarkIslandCoreTests/WebAgentEventTests.swift) using swift-testing's `@Test`. Include round-trip tests for each of the 5 new event cases + `runWebAgentTask` command + role hello. Use deterministic `Date(timeIntervalSince1970: 1_730_000_000)` to keep fixtures stable.
+- [x] 4.2 Save canonical encoded JSON for each case to `Tests/LarkIslandCoreTests/Fixtures/web-agent-bridge/<case>.json`. Both Swift tests and TS tests read the same files — this is the schema-drift detector.
+- [x] 4.3 Run `cd lark-island && swift test`; all tests pass
 
 ## 5. TypeScript side — runner codec
 
