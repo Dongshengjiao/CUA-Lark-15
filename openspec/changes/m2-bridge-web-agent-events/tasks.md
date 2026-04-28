@@ -41,6 +41,6 @@
 
 ## 7. Wrap-up
 
-- [ ] 7.1 Run `npx @fission-ai/openspec validate m2-bridge-web-agent-events` — change validates clean
-- [ ] 7.2 Commit with conventional message `feat(bridge): web-agent envelope schema (M2)` referencing this change directory
+- [x] 7.1 Run `npx @fission-ai/openspec validate m2-bridge-web-agent-events` — change validates clean
+- [x] 7.2 Commit with conventional message `feat(bridge): web-agent envelope schema (M2)` referencing this change directory (split across 3 commits: 891bb84 schema, 6bc170e Swift tests, e43618b TS codec/tests)
 - [ ] 7.3 Run `/opsx-archive m2-bridge-web-agent-events` (or `npx @fission-ai/openspec archive m2-bridge-web-agent-events`) to fold the new spec into `openspec/specs/web-agent-bridge/` and move this change to `openspec/changes/archive/`
