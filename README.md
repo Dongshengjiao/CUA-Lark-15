@@ -1,116 +1,97 @@
-# CUA-Lark-15 · LarkVision-Tester
+# Lark Island
 
-> 2026 飞书 AI 校园挑战赛 · **质量工程与智能测试方向** · 第 15 组  
-> 一个**视觉驱动**的飞书桌面端智能测试 Agent
-
-像真实用户一样"看屏幕、想策略、做操作、判结果、写报告"，端到端完成飞书桌面客户端的功能测试与质量评估。
-
-## 站在巨人的肩膀上 (FAQ Q4)
-
-本项目基于开源 [TurixAI/TuriX-CUA](https://github.com/TurixAI/TuriX-CUA) 二次开发 (MIT License, OSWorld 64.2%)，核心 Agent 主流程沿用上游，**自研创新点为飞书专属适配 + 三层视觉验证 + Oracle 评测体系**。详见 [larkvision/UPSTREAM.md](larkvision/UPSTREAM.md) 和 [docs/turix_cua_review.md](docs/turix_cua_review.md)。
-
-## 工程结构
+灵动岛 (Dynamic Island) + 浏览器沙箱 web agent。从屏幕顶端唤出灵动岛输入"给张三发条飞书消息"，本地后台启动 headless Chromium 自动完成；产品定位对标 Manus 的 Mac 桌面入口，但**全本地、无服务器**。
 
 ```
-CUA-Lark-15/
-├── larkvision/         # vendored TuriX-CUA + 飞书定制
-│   ├── UPSTREAM.md     # 引用与改造说明
-│   ├── src/            # TuriX 源码 (commit 8f80ae6)
-│   ├── examples/       # 入口 main.py + 示例 config
-│   ├── configs/        # 飞书子产品预设 (IM/日历/Docs)
-│   ├── lark_skills/    # 飞书专属 SOP (im / calendar / docs)
-│   └── ...
-│
-├── agent/              # 【自研补强模块】
-│   ├── verifier/       # ⭐ 三层视觉验证 (L1 像素 Diff + L2 OCR + L3 VLM)
-│   ├── recovery/       # M5 自愈式执行
-│   └── reporter/       # 评测报告 + Streamlit Dashboard
-│
-├── bench/              # 【自研】FeishuCUA-Bench
-│   ├── tasks/          # YAML 用例集 (IM/日历/Docs)
-│   ├── runner.py       # 调 TuriX agent + 三层验证 (M4)
-│   └── oracle.py       # lark-cli 后端校准 (M4)
-│
-├── plan/               # 方案演进 (v0.1 → v0.3)
-├── docs/               # 课题资料 + 系统设计文档 + TuriX 调研
-├── doc_auto/           # 代码同步文档 (workspace rule)
-├── infra/              # 环境配置文档
-└── tests/              # 自研模块单测
+                           ┌────────────────────────┐
+   menubar 🌐  ────────►   │   AppModel              │
+   (or hover-expand)        │   .startWebAgentTask    │
+                           │                          │
+   feishu bot (M5.5+) ──►  │     │                    │
+                           │     ▼                    │
+                           │   BridgeServer (Unix     │
+                           │   socket NDJSON v2)      │
+                           └─────┬────────────────────┘
+                                 │ runWebAgentTask
+                                 ▼
+                           ┌────────────────────────┐
+                           │ runner (Node + tsx)     │ ─► headless Chromium
+                           │ • UI-TARS GUIAgent      │     (puppeteer-core)
+                           │ • Qwen3-VL-Plus VLM     │
+                           │ • feishu skill registry │
+                           └─────┬────────────────────┘
+                                 │ webAgentStepUpdate
+                                 ▼
+                           灵动岛 overlay 实时刷新
+                           (step 文字 + 缩略图 +
+                            完成态 markdown 答复)
 ```
 
-## 核心创新点
+## 三步本地启动
 
-| # | 创新点 | 实现 |
-|---|---|---|
-| 1 | 三层视觉验证 + 加权投票 | `agent/verifier/{pixel_diff,ocr_check,vote}.py` |
-| 2 | lark-cli Oracle 评测期校准 | `bench/oracle.py` (M4) |
-| 3 | FeishuCUA-Bench 标准用例集 | `bench/tasks/{im,calendar,docs}/*.yaml` |
-| 4 | 飞书专属 Skills 库 | `larkvision/lark_skills/` |
-| 5 | 跨产品联动 E2E (M5) | `bench/tasks/cross/*.yaml` |
-| 6 | Streamlit 评测 Dashboard | `agent/reporter/dashboard.py` (M4) |
+### 0. 一次性准备
 
-## 快速开始
+- macOS 14+ (有 hardware notch 体验更佳；非 notch Mac 会用 top-bar fallback)
+- Swift 6.2+ (`brew install swift`，新增 keg-only 路径 `/opt/homebrew/opt/swift/bin`)
+- Node 20+ (`brew install node`)
+- 一个 [DashScope](https://bailian.console.aliyun.com/) API key 用于默认的 Qwen3-VL-Plus profile
 
-### 1. 主仓自研模块
+### 1. 配 .env
 
 ```bash
-# 主仓只用于跑 verifier / bench / reporter (Python 3.11+, uv 管理)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv sync
-uv run pytest -q
+cd runners/web-agent
+cp .env.example .env
+# 编辑 .env 把 DASHSCOPE_API_KEY=sk-... 填进去
 ```
 
-### 2. larkvision (TuriX 主进程, Python 3.12 独立 venv)
+### 2. 一键起服务
 
 ```bash
-cd larkvision
-uv venv -p 3.12
-uv pip install -r requirements.txt
-
-# 配 DashScope key
-export OPENAI_API_KEY="sk-..."
-
-# 跑飞书发消息预设
-uv run python examples/main.py --config configs/lark_im_send.json
+zsh scripts/dev.sh
 ```
 
-详细环境配置见 [infra/env_setup.md](infra/env_setup.md)。
+脚本会：自动 `npm install` runner 依赖（如需要） → `swift build` → 后台启动 `swift run LarkIslandApp` → 等到 runner 子进程注册成功 → 提示"点菜单栏 🌐 开干"。
 
-## 已验证用例
+### 3. 跑一条任务
 
-| 用例 | 子产品 | 状态 | 耗时 | LLM |
-|---|---|---|---|---|
-| 给指定联系人发文本消息 | IM | ✅ 4-26 跑通 | ~65s, 3 步 | qwen3-vl-plus |
-| 创建日程 | Calendar | M3 待开发 | — | — |
-| 新建文档 | Docs | M3 待开发 | — | — |
+- 点屏幕顶端右侧的 🌐 globe 图标 → 弹出输入框
+- 输入 e.g. `在 google 搜索 "UI-TARS"，告诉我前 3 条结果` → Run
+- 灵动岛展开显示步骤文字 + 实时缩略图 → 完成态显示 markdown 答复
 
-## 里程碑 (剩 17 天)
+## 演示路径
 
-| 里程碑 | 日期 | 状态 |
+`scripts/dev.sh` 启动后两段典型 demo：
+
+| Demo | Prompt | 路径 |
 |---|---|---|
-| ✅ M1 单步操作 | -04-28 | 完成 (4-26) |
-| M2 流程串联 | 04-28 ~ 05-01 | 进行中 |
-| M3 多产品覆盖 | 05-02 ~ 05-05 | 待开始 |
-| M4 评估体系 | 05-06 ~ 05-09 | 待开始 |
-| M5 进阶优化 | 05-10 ~ 05-13 | 待开始 |
-| **决赛答辩** | **05-14** | — |
+| **通用** | `在 google 搜索 UI-TARS 报告前 3 条` | runner spawn 时已 navigate 到 google.com → router 不命中 → generic 模式 |
+| **飞书 IM** | `在飞书给自己发条消息：hello demo` | router 命中 `feishu_im_send` → 首次需扫码登录（visible Chromium 弹出二维码）→ 切回 headless → GUIAgent 跑完 |
 
-## 决赛 5 项交付
+详细 demo 录像见 [`lark-island/docs/m6-demo.mov`](lark-island/docs/m6-demo.mov)（如未入仓则改为外链）。
 
-- [x] ① 系统设计文档 (起草中: `docs/system_design.md`, M3 完稿)
-- [x] ② 源代码仓库 (本仓库)
-- [ ] ③ 3-5 分钟 Demo 视频 (M5)
-- [ ] ④ 评测报告 (M4 起)
-- [ ] ⑤ 答辩 PPT (M5)
+## 已知问题
 
-## 文档导航
+| 问题 | 状态 |
+|---|---|
+| 首次飞书任务需要扫码登录（弹可见 Chromium）；之后 7 天内复用 cookie | by design |
+| Qwen3-VL-Plus 在飞书 React 应用偶尔点错搜索框（plan 风险 1） | M6 已通过 systemPromptAddendum 强禁止段缓解；如再撞墙启动 path B (DOM 模式) |
+| 国内访问 `google.com` 慢/失败 | 设环境变量 `LARK_ISLAND_RUNNER_DEFAULT_URL=https://www.bing.com` 或编辑 `runners/web-agent/src/runner.ts` 的 `DEFAULT_STARTING_URL` |
+| 灵动岛 idle 状态融入 notch 看不见 | 已在 closed 态加左侧 brand mark + 右侧状态点（橙色=有任务/审批，绿=runner online） |
+| 任务取消按钮 / 全局快捷键 | M7 backlog |
 
-- 当前方案 (v0.3): [plan/2026-04-27-v0.3-plan.md](plan/2026-04-27-v0.3-plan.md)
-- 上游引用合规: [larkvision/UPSTREAM.md](larkvision/UPSTREAM.md)
-- TuriX 调研报告: [docs/turix_cua_review.md](docs/turix_cua_review.md)
-- 环境配置: [infra/env_setup.md](infra/env_setup.md)
-- 课题原文: [docs/官方课题信息.md](docs/官方课题信息.md)
+## 架构 / 子目录
 
-## 许可证
+| 子目录 | License | 角色 |
+|---|---|---|
+| [`lark-island/`](lark-island/) | GPL v3 (fork from open-vibe-island) | macOS 灵动岛 SwiftUI app + BridgeServer + runner supervisor |
+| [`runners/web-agent/`](runners/web-agent/) | Apache-2.0 | Node 子进程：UI-TARS GUIAgent + 飞书 skill registry + 扫码切换协议 |
+| [`larkvision/`](larkvision/) | MIT (frozen) | 早期 Python 桌面控制原型；M0 起停止维护 |
+| [`openspec/`](openspec/) | docs | 项目历史 milestone（M0-M6）的 propose/design/spec/tasks 归档 |
 
-MIT License (与 TuriX-CUA 上游一致).
+完整 license map 见 [`LICENSE.md`](LICENSE.md)；子目录间靠 IPC（Unix socket NDJSON）解耦，不形成静态链接，license 不互相污染。
+
+## 想了解更多
+
+- 产品规划与里程碑：[`/.cursor/plans/island-web-agent-pivot_3704f689.plan.md`](.cursor/plans/island-web-agent-pivot_3704f689.plan.md)
+- 当前已归档的能力规约：[`openspec/specs/`](openspec/specs/)
+- 历史 milestone：[`openspec/changes/archive/`](openspec/changes/archive/)
