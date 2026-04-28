@@ -4,7 +4,7 @@
 // coverage that the new SessionState reducer still supports.
 
 import Testing
-@testable import OpenIslandCore
+@testable import LarkIslandCore
 import Foundation
 
 @Suite("SessionState reducer")

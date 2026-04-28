@@ -4,7 +4,7 @@ import Foundation
 
 public final class LocalBridgeClient: @unchecked Sendable {
     private let socketURL: URL
-    private let queue = DispatchQueue(label: "app.openisland.bridge.client")
+    private let queue = DispatchQueue(label: "ai.neolix.lark-island.bridge.client")
 
     private var fileDescriptor: Int32 = -1
     private var readSource: DispatchSourceRead?

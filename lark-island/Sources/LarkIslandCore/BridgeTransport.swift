@@ -7,32 +7,28 @@ public enum BridgeSocketLocation {
     private static var stableDirectoryURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
-        return appSupport.appendingPathComponent("OpenIsland")
+        return appSupport.appendingPathComponent("LarkIsland")
     }
 
     public static var defaultURL: URL {
         stableDirectoryURL.appendingPathComponent("bridge.sock")
     }
 
-    /// Legacy path for backward compatibility with older hook binaries.
+    /// Legacy /tmp path retained briefly to ease migration during the
+    /// M0c rename window. Removable once no v0.x clients remain on disk.
     public static var legacyURL: URL {
-        URL(fileURLWithPath: "/tmp/open-island-\(getuid()).sock")
+        URL(fileURLWithPath: "/tmp/lark-island-\(getuid()).sock")
     }
 
     public static func currentURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
-        if let path = environment["OPEN_ISLAND_SOCKET_PATH"], !path.isEmpty {
+        if let path = environment["LARK_ISLAND_SOCKET_PATH"], !path.isEmpty {
             return URL(fileURLWithPath: path)
         }
-
-        if let legacyPath = environment["VIBE_ISLAND_SOCKET_PATH"], !legacyPath.isEmpty {
-            return URL(fileURLWithPath: legacyPath)
-        }
-
         return defaultURL
     }
 
     public static func uniqueTestURL() -> URL {
-        URL(fileURLWithPath: "/tmp/open-island-test-\(UUID().uuidString).sock")
+        URL(fileURLWithPath: "/tmp/lark-island-test-\(UUID().uuidString).sock")
     }
 }
 
