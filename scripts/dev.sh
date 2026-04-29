@@ -39,13 +39,26 @@ print_step "swift build..."
 
 # 4) Launch LarkIslandApp in the background. The supervisor inside
 # the app spawns the runner subprocess automatically.
+#
+# IMPORTANT: rotate the runner log first. M9 verify-run #6 reproduced
+# a race condition where dev.sh's grep below would match a
+# 'registered as webAgentRunner' line left over from a previous
+# dev.sh run (today's log is append-only across runs). dev.sh would
+# then think runner is ready and spawn the bot bridge before the new
+# LarkIslandApp's BridgeServer had finished binding the Unix socket,
+# producing ECONNREFUSED on the bridge connect. Moving the prior log
+# aside guarantees grep sees only this run's register line.
+mkdir -p "$LOG_DIR"
+if [[ -f "$RUNNER_LOG" ]]; then
+  mv "$RUNNER_LOG" "$RUNNER_LOG.prev-$(date +%H%M%S)"
+fi
+
 print_step "launching LarkIslandApp..."
 ( cd "$APP_DIR" && swift run LarkIslandApp ) &
 APP_PID=$!
 
 # 5) Tail the runner log waiting for the "ready for tasks" line.
 print_step "waiting for runner to register..."
-mkdir -p "$LOG_DIR"
 DEADLINE=$(( $(date +%s) + 60 ))
 RUNNER_READY=0
 while (( $(date +%s) < DEADLINE )); do
