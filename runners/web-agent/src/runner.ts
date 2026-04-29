@@ -18,7 +18,10 @@ import type { BridgeEnvelope, BridgeCommand } from './bridge/types.js';
 import { resolveProfile, type ResolvedProfile } from './profiles/index.js';
 import { AgentRuntime } from './agent/runtime.js';
 import { userDataDirFor } from './agent/profiles_dir.js';
+import type { BrowserRef } from './agent/login.js';
 import { registry, selectSkill } from './skills/registry.js';
+
+const GENERIC_SEGMENT = 'generic';
 
 // M6 task 2.x: navigate to a populated default page on startup so the
 // VLM never sees about:blank when running a generic task. M5 task 7.5
@@ -61,20 +64,22 @@ async function main() {
   //
   // Default user-data-dir is the "generic" segment; M5 skill resolution
   // may swap to a skill-specific browser via runtime.browserRef.
-  let browserRef: { current: LocalBrowser };
+  // M7 task 1.4: BrowserRef now tracks currentSegment so ensureLoggedIn
+  // can decide whether Phase 0 swap is required before probing cookies.
+  let browserRef: BrowserRef;
   try {
     logger.info('launching headless Chromium...');
     const browser = new LocalBrowser({ logger });
     await browser.launch({
       headless: true,
-      userDataDir: userDataDirFor('generic'),
+      userDataDir: userDataDirFor(GENERIC_SEGMENT),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-blink-features=AutomationControlled',
       ],
     });
-    browserRef = { current: browser };
+    browserRef = { current: browser, currentSegment: GENERIC_SEGMENT };
     logger.info('Chromium ready');
   } catch (err) {
     logger.error(`Chromium launch failed: ${err}`);
