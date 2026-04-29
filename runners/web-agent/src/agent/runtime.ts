@@ -371,7 +371,19 @@ export class AgentRuntime {
       browser: this.browserRef.current as unknown as never,
       browserType: 'chrome' as never,
       logger: this.logger,
-      highlightClickableElements: true,
+      // M9 hotfix: highlightClickableElements (UIHelper) injects DOM
+      // overlays via document.body.appendChild() before each
+      // screenshot. On heavy SPAs (M9 verify-run #8: feishu calendar
+      // entry via messenger sidebar) the body element is briefly
+      // unavailable while React rebuilds the surface, and the helper
+      // throws "Cannot read properties of null (reading 'appendChild')"
+      // — which BrowserOperator surfaces as a screenshot failure that
+      // GUIAgent retries 3x and gives up on. The highlight overlay is a
+      // nice-to-have visual cue (orange box around clickable elements)
+      // that the VLM does not actually need to ground correctly. Turn
+      // it off for stability; revisit once @ui-tars/operator-browser
+      // ships defensive null-checks in UIHelper.
+      highlightClickableElements: false,
       showActionInfo: false,
       showWaterFlow: false,
       onFinalAnswer: async (answer) => {
