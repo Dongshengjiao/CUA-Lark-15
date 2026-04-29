@@ -333,6 +333,40 @@ private struct OpenedTaskBody: View {
 
     @ViewBuilder
     private func taskCard(_ session: AgentSession) -> some View {
+        // M9 hotfix: make the live agent-vision screenshot the
+        // primary visual element of the opened state. Two-column
+        // layout: left side carries task metadata (title / phase /
+        // summary / thought / approval prompts); right side blows
+        // the screenshot up to ~320pt so demo audiences can see
+        // exactly what the agent is looking at right now.
+        HStack(alignment: .top, spacing: 12) {
+            taskMetadataColumn(session)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let path = session.latestScreenshotURL,
+               !path.isEmpty,
+               FileManager.default.fileExists(atPath: path),
+               let image = NSImage(byReferencingFile: path) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.medium)
+                    .scaledToFit()
+                    .frame(maxWidth: 320, maxHeight: 200, alignment: .topTrailing)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.35), radius: 6, x: 0, y: 2)
+                    .id(path) // re-render on every step's screenshot path change
+                    .transition(.opacity)
+                    .animation(.easeOut(duration: 0.2), value: path)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func taskMetadataColumn(_ session: AgentSession) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 phasePill(session.phase)
@@ -345,29 +379,7 @@ private struct OpenedTaskBody: View {
             Text(session.title.isEmpty ? "(untitled task)" : session.title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
-                .lineLimit(2)
-
-            // M6 task 3.3: live screenshot thumbnail. We pull the file
-            // off disk lazily via NSImage(byReferencingFile:); SwiftUI's
-            // .id(path) trick makes it re-render on every step.
-            if let path = session.latestScreenshotURL,
-               !path.isEmpty,
-               FileManager.default.fileExists(atPath: path),
-               let image = NSImage(byReferencingFile: path) {
-                Image(nsImage: image)
-                    .resizable()
-                    .interpolation(.medium)
-                    .scaledToFit()
-                    .frame(maxWidth: 120, maxHeight: 90, alignment: .leading)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                    )
-                    .id(path) // re-render on every step's screenshot path change
-                    .transition(.opacity)
-                    .animation(.easeOut(duration: 0.2), value: path)
-            }
+                .lineLimit(3)
 
             // M6 task 3.4: render the final answer with markdown when
             // the task has completed. SwiftUI's Text natively parses
@@ -387,7 +399,7 @@ private struct OpenedTaskBody: View {
                     Text(session.summary)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.78))
-                        .lineLimit(3)
+                        .lineLimit(5)
                 }
             }
 
