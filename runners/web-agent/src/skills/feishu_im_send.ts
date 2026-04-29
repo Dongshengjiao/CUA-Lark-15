@@ -24,8 +24,16 @@ Feishu has TWO search inputs that look similar but behave very differently:
    below the "消息" header (placeholder "搜索 (⌘+K)"). This is the message-
    conversation search and is the correct entry point.
 
-If you see the dark global bar appear, immediately click anywhere outside it
-or press Esc to dismiss, then locate the conversation search in the left panel.
+If you accidentally click into the dark global bar (a centered modal pops up
+with title "搜索全部内容..." and a list of recent / suggested results), you
+MUST recover before doing anything else. Two valid recovery actions:
+
+  - hotkey(key='escape')   ← MUST use the full word "escape", NOT "esc"
+  - click(start_box='[400,400]')  ← anywhere in the empty backdrop outside
+                                    the modal also dismisses it
+
+After recovery, re-locate the LIGHT conversation search in the left panel
+(below "消息" header) and resume from step 1.
 
 ## CONVENTIONAL FLOW (self-chat or contact)
 
