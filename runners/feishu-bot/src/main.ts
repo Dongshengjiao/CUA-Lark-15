@@ -260,7 +260,21 @@ function installSockHandlers(sock: Socket, _cfg: BotConfig, sub: ChildProcess): 
         continue;
       }
       if (env.type === 'event') {
+        // Verbose log every incoming event so we can see whether
+        // BridgeServer is fanning out to us at all (M9 verify-run
+        // showed task lifecycle events looked dropped — turned out
+        // the observer-side handler was just silent).
+        const ev = env.event;
+        const taskID =
+          'payload' in ev && typeof (ev.payload as { taskID?: unknown }).taskID === 'string'
+            ? ((ev.payload as { taskID: string }).taskID)
+            : '<no-taskID>';
+        log('info', `bridge event: type=${ev.type} taskID=${taskID}`);
         handleBridgeEvent(env, _cfg);
+      } else if (env.type === 'command') {
+        // BridgeServer never sends commands TO observers, so this is
+        // unexpected — log it.
+        log('warn', `bridge: unexpected command envelope on observer socket`);
       }
     }
   });
@@ -337,12 +351,18 @@ function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void 
 function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg: BotConfig): void {
   const ev = env.event;
   if (!inFlight) {
-    // No active task tracked; e.g. observer received an event for a
-    // task started by the menubar popover. Ignore — that task's
-    // result belongs to the menubar UI flow, not us.
+    log('warn', `bridge event ${ev.type} dropped: no inFlight task tracked`);
     return;
   }
-  if (!('payload' in ev) || ev.payload.taskID !== inFlight.taskID) {
+  const evTaskID =
+    'payload' in ev && typeof (ev.payload as { taskID?: unknown }).taskID === 'string'
+      ? ((ev.payload as { taskID: string }).taskID)
+      : '';
+  if (!evTaskID || evTaskID !== inFlight.taskID) {
+    log(
+      'info',
+      `bridge event ${ev.type} skipped: taskID=${evTaskID || '<missing>'} != inFlight.taskID=${inFlight.taskID}`,
+    );
     return;
   }
   switch (ev.type) {
@@ -354,7 +374,9 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
       const text = ev.payload.message
         ? `${ev.payload.message}（请前往 Mac 桌面上的灵动岛 / 浏览器扫码）`
         : `任务等待登录授权（${ev.payload.kind}），请前往 Mac 桌面扫码。`;
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text });
+      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text }).then((r) => {
+        if (!r.ok) log('warn', `approval-reply failed: ${r.error}`);
+      });
       return;
     }
     case 'webAgentTaskCompleted': {
@@ -365,13 +387,21 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
         finalAnswer.length > 200
           ? `✅ 任务完成（${steps} 步 / ${(ms / 1000).toFixed(1)}s）\n\n${finalAnswer}`
           : `✅ 任务完成（${steps} 步 / ${(ms / 1000).toFixed(1)}s）：${finalAnswer}`;
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text: summary });
+      log('info', `task ${inFlight.taskID} completed; sending finalAnswer reply`);
+      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text: summary }).then(
+        (r) => {
+          if (!r.ok) log('warn', `completed-reply failed: ${r.error}`);
+        },
+      );
       inFlight = null;
       return;
     }
     case 'webAgentTaskFailed': {
       const text = `❌ 任务失败（${ev.payload.kind}）：${ev.payload.message}`;
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text });
+      log('info', `task ${inFlight.taskID} failed (${ev.payload.kind}); sending fail reply`);
+      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text }).then((r) => {
+        if (!r.ok) log('warn', `failed-reply failed: ${r.error}`);
+      });
       inFlight = null;
       return;
     }
