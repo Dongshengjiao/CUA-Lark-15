@@ -319,8 +319,44 @@ export class AgentRuntime {
    * instantiating a real GUIAgent.
    */
   protected buildSystemPrompt(skill: Skill | null): string {
-    if (!skill) return BASE_SYSTEM_PROMPT;
-    return `${BASE_SYSTEM_PROMPT}\n\n${skill.systemPromptAddendum.trim()}\n`;
+    // M9 hotfix: inject the wall-clock date so the VLM does not have
+    // to guess "today / tomorrow / next week" from training data.
+    // Calendar verify-run #9 reproduced a date-picker bug where the
+    // VLM read "5月1" as "4月1" because it was simultaneously trying
+    // to figure out what "明天" meant from the prompt — giving it the
+    // ground-truth "today" string anchors the reasoning.
+    const dateContext = this.formatDateContext(new Date());
+    const base = `${BASE_SYSTEM_PROMPT}\n${dateContext}\n`;
+    if (!skill) return base;
+    return `${base}\n${skill.systemPromptAddendum.trim()}\n`;
+  }
+
+  protected formatDateContext(now: Date): string {
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const dayAfter = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      return `${y}-${m}-${day}（${weekdays[d.getDay()]}）`;
+    };
+    return [
+      '## CURRENT DATE — anchor for relative-time prompts',
+      '',
+      `今天 (today) = ${fmt(now)}`,
+      `明天 (tomorrow) = ${fmt(tomorrow)}`,
+      `后天 (day after tomorrow) = ${fmt(dayAfter)}`,
+      '',
+      'When the user prompt contains relative times like "明天" / "tomorrow"',
+      '/ "下周一" / "next Monday", convert them to the explicit YYYY-MM-DD',
+      'date above before clicking date pickers. When confirming a selection,',
+      'READ THE PICKER HEADER (year + month) — the digit "1" inside a date',
+      'grid means "the 1st of the CURRENT picker month", which may be a',
+      'different month than today. If the picker is on April but you',
+      'wanted May, click the > arrow to advance the month BEFORE clicking',
+      'the day cell.',
+    ].join('\n');
   }
 
   /**

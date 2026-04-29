@@ -386,16 +386,26 @@ describe('M5 AgentRuntime — skill resolution + login precheck', () => {
 
     expect(runtime.capturedSkillIDs).toEqual([null]);
     expect(runtime.capturedSystemPrompts[0]).toContain('You are a GUI agent');
-    // base prompt ends with "## User Instruction\n" — no extra addendum after it.
-    expect(runtime.capturedSystemPrompts[0].endsWith('## User Instruction\n')).toBe(true);
+    // base prompt body ends with "## User Instruction\n" before the M9
+    // CURRENT DATE context block; verify both pieces are present and
+    // ordered.
+    const built = runtime.capturedSystemPrompts[0];
+    const userInstrIdx = built.indexOf('## User Instruction\n');
+    const dateIdx = built.indexOf('## CURRENT DATE');
+    expect(userInstrIdx).toBeGreaterThanOrEqual(0);
+    expect(dateIdx).toBeGreaterThan(userInstrIdx);
     // M9 hotfix: ACTION SYNTAX block is part of the base prompt so
     // generic mode (no skill) is also protected against the
     // `start_box=[...]` no-quotes drift that crashed runner pages
     // with "Missing startX(...) or startY..." retry loops.
-    expect(runtime.capturedSystemPrompts[0]).toContain('ACTION SYNTAX — STRICT');
-    expect(runtime.capturedSystemPrompts[0]).toMatch(/click\(start_box='\[/);
-    expect(runtime.capturedSystemPrompts[0]).toMatch(/WRONG/);
-    expect(runtime.capturedSystemPrompts[0]).toContain("hotkey(key='escape')");
+    expect(built).toContain('ACTION SYNTAX — STRICT');
+    expect(built).toMatch(/click\(start_box='\[/);
+    expect(built).toMatch(/WRONG/);
+    expect(built).toContain("hotkey(key='escape')");
+    // M9 hotfix #10: CURRENT DATE block injects today / tomorrow so
+    // the VLM does not have to guess relative dates from training.
+    expect(built).toContain('今天 (today) =');
+    expect(built).toContain('明天 (tomorrow) =');
   });
 
   it('skips login precheck and starting nav when skill is null', async () => {

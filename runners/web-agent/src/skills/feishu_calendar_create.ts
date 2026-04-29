@@ -115,16 +115,42 @@ again and re-locate the icon (the rail can be scrolled).
   3. Click the primary "保存" / "Save" / "创建" button at the bottom-
      right of the modal.
 
-## COMPLETION SIGNAL — call finished() AS SOON AS THIS HAPPENS
+## COMPLETION SIGNAL — STRICT — both conditions are required
 
-You will see the modal dialog close, AND the new event appear as a
-colored block on the calendar grid (today/the chosen date) with the
-title text inside. THE INSTANT you see that block:
+You may ONLY call finished() after BOTH of the following are true on
+the latest screenshot:
 
-    finished('已创建日程：<标题>（<时间>）')
+  1. The modal dialog has closed (not just minimized — the calendar
+     grid is fully visible behind), AND
+  2. A colored event block with your typed title text inside has
+     appeared on the calendar grid at the date / time you intended.
+     You must be able to read at least the first 3-4 characters of
+     the title inside the block.
 
-Do NOT click into the new event again, do NOT verify by hovering,
-do NOT re-screenshot. Modal closes → block appears → finished().
+A "保存成功" / "saved" toast or banner is NOT enough on its own.
+M9 verify-run #9 surfaced a false-positive completion: the VLM saw
+the toast but the event block was nowhere visible, and it called
+finished() while the actual event was created on the wrong date.
+
+If after the save click you do NOT see the event block on the grid:
+  - First check whether the calendar view is showing the wrong week.
+    Use the date navigator (top of grid) to switch to the week
+    containing your intended date, then re-screenshot.
+  - If the block is still missing, scroll the time grid vertically
+    so the requested hour (e.g. 15:00) is on screen.
+  - If after scrolling there is STILL no block, the save likely
+    failed (or saved to a different date due to picker mis-click).
+    Re-open the create flow and try again with explicit date /
+    time entry. Do NOT call finished() until you have visual
+    confirmation of the event block.
+
+Once the block is visible:
+
+    finished('已创建日程：<标题>（YYYY-MM-DD HH:MM - HH:MM）')
+
+Use the explicit YYYY-MM-DD format from the CURRENT DATE section at
+the top of this prompt — do NOT hand-write "明天" or "tomorrow" in
+the finished() string, because that loses what was actually saved.
 
 ## FEW-SHOT
 
