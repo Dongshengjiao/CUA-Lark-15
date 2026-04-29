@@ -317,6 +317,7 @@ function handleNdjsonLine(line: string, sock: Socket, cfg: BotConfig): void {
       text: `上一条任务（${stale.prompt.slice(0, 30)}…）还在跑（已 ${Math.round(
         (Date.now() - stale.startedAt) / 1000,
       )} 秒），请稍候再发新指令。`,
+      nonce: `busy-${msg.messageID}`,
     }).then((r) => {
       if (!r.ok) log('warn', `busy-reply failed: ${r.error}`);
     });
@@ -338,6 +339,7 @@ function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void 
     profile: cfg.larkProfile,
     chatID: msg.chatID,
     text: `已收到：${msg.text}\n正在执行…`,
+    nonce: `ack-${msg.messageID}`,
   }).then((r) => {
     if (!r.ok) log('warn', `ack-reply failed: ${r.error}`);
   });
@@ -382,7 +384,12 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
       const text = ev.payload.message
         ? `${ev.payload.message}（请前往 Mac 桌面上的灵动岛 / 浏览器扫码）`
         : `任务等待登录授权（${ev.payload.kind}），请前往 Mac 桌面扫码。`;
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text }).then((r) => {
+      void replyText({
+        profile: cfg.larkProfile,
+        chatID: inFlight.chatID,
+        text,
+        nonce: `approval-${inFlight.taskID}`,
+      }).then((r) => {
         if (!r.ok) log('warn', `approval-reply failed: ${r.error}`);
       });
       return;
@@ -396,18 +403,26 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
           ? `✅ 任务完成（${steps} 步 / ${(ms / 1000).toFixed(1)}s）\n\n${finalAnswer}`
           : `✅ 任务完成（${steps} 步 / ${(ms / 1000).toFixed(1)}s）：${finalAnswer}`;
       log('info', `task ${inFlight.taskID} completed; sending finalAnswer reply`);
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text: summary }).then(
-        (r) => {
-          if (!r.ok) log('warn', `completed-reply failed: ${r.error}`);
-        },
-      );
+      void replyText({
+        profile: cfg.larkProfile,
+        chatID: inFlight.chatID,
+        text: summary,
+        nonce: `completed-${inFlight.taskID}`,
+      }).then((r) => {
+        if (!r.ok) log('warn', `completed-reply failed: ${r.error}`);
+      });
       inFlight = null;
       return;
     }
     case 'webAgentTaskFailed': {
       const text = `❌ 任务失败（${ev.payload.kind}）：${ev.payload.message}`;
       log('info', `task ${inFlight.taskID} failed (${ev.payload.kind}); sending fail reply`);
-      void replyText({ profile: cfg.larkProfile, chatID: inFlight.chatID, text }).then((r) => {
+      void replyText({
+        profile: cfg.larkProfile,
+        chatID: inFlight.chatID,
+        text,
+        nonce: `failed-${inFlight.taskID}`,
+      }).then((r) => {
         if (!r.ok) log('warn', `failed-reply failed: ${r.error}`);
       });
       inFlight = null;

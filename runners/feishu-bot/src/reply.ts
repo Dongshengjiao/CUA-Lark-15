@@ -14,6 +14,15 @@ export interface ReplyArgs {
   profile: string;
   chatID: string;
   text: string;
+  /**
+   * Optional nonce that gets mixed into the idempotency key so that
+   * repeating the same `text` to the same `chat` (e.g. user sends
+   * "hello bot" twice in a row) does NOT collapse on Feishu's
+   * server-side idempotency check. Pass the source messageID or
+   * taskID for ack/approval/completed/failed replies; pass
+   * `Date.now()` for periodic ones.
+   */
+  nonce?: string;
   /** When true, allow text > REPLY_MAX_LEN (used for tests / debugging). */
   allowOverlongForTest?: boolean;
 }
@@ -27,7 +36,7 @@ export interface ReplyResult {
 export async function replyText(args: ReplyArgs): Promise<ReplyResult> {
   const truncated = truncateForFeishu(args.text, args.allowOverlongForTest);
   const idempotencyKey = createHash('md5')
-    .update(`${args.chatID}|${truncated}`)
+    .update(`${args.chatID}|${truncated}|${args.nonce ?? ''}`)
     .digest('hex')
     .slice(0, 32);
 
