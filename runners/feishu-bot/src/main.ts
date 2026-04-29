@@ -260,10 +260,18 @@ function installSockHandlers(sock: Socket, _cfg: BotConfig, sub: ChildProcess): 
         continue;
       }
       if (env.type === 'event') {
-        // Verbose log every incoming event so we can see whether
-        // BridgeServer is fanning out to us at all (M9 verify-run
-        // showed task lifecycle events looked dropped — turned out
-        // the observer-side handler was just silent).
+        // M9 fix: Wire schema for AgentEvent on the BridgeServer side
+        // nests the payload under a key MATCHING the event's `type`
+        // (e.g. `{type: "webAgentTaskCompleted", webAgentTaskCompleted: {taskID:...}}`),
+        // not under a generic `payload` key. The TS BridgeCodec
+        // (runners/web-agent/src/bridge/codec.ts) renames this to
+        // `payload` for observer-client.ts callers. Bot bridge uses
+        // raw JSON.parse, so we do the rename here.
+        const evRaw = env.event as unknown as Record<string, unknown>;
+        const wireType = evRaw.type;
+        if (typeof wireType === 'string' && evRaw[wireType] && !('payload' in evRaw)) {
+          evRaw.payload = evRaw[wireType];
+        }
         const ev = env.event;
         const taskID =
           'payload' in ev && typeof (ev.payload as { taskID?: unknown }).taskID === 'string'
