@@ -62,3 +62,83 @@
 ## 8. 备选 path B（仅在 task 6.5 飞书 IM 任务连续 3 次失败时启动）
 
 - [-] 8.1 给 `feishu_im_send` 加 `mode: 'dom'` 字段，runtime 在 mode === 'dom' 时把 GUIAgent 的 click 路径替换为：让 LLM 输出 `{element_text, role}` JSON，由 puppeteer `page.getByRole/getByText` 在 DOM 里精确定位执行。本任务不在默认 milestone 范围内。
+
+## 9. Post-archive retrospective（实测于 2026-04-28 23:55–24:02 UTC+8）
+
+> M6 archive 当时 task 6.3-6.6 均为 `[-]`（未实测）。本节是用真飞书账号跑一次 `hello m6` demo
+> 后的复盘，与上文 task 表的预期对照。**不修改上文复选框** —— 留下"archive 时
+> 状态" vs "post-archive 实测状态"的双层证据。
+
+### 9.1 实测条件
+
+- 命令：`npx tsx test/observer-client.ts demo-m6-im-v2 "在飞书给自己发条消息：hello m6"`
+- 触发路径：observer-client → BridgeServer.handleCommand → runner.runWebAgentTask
+- 飞书账号：用户当场扫码登录（`profiles/feishu/` 当时是空目录）
+- 模型：Qwen3-VL-Plus（dashscope，profile=`qwen-default`）
+
+### 9.2 实测结果
+
+| 项目 | M6 archive 预期 | 实测 |
+|---|---|---|
+| `dev.sh` runner ready 时间 | 一键内出现 ✅ | 10s（首次）/ 7s（增量） |
+| 飞书 IM 任务最终状态 | `webAgentTaskCompleted` | ✅ `webAgentTaskCompleted` —— 蓝色气泡 + 时间戳 00:01 在自聊会话中可见（屏幕实拍验证）|
+| 总 step events | ≤ 25 | **42**（约 21 次 LLM iteration） |
+| 用时 | 〜60s 录制级 | **175 秒** |
+| 在 `maxLoopCount=30` 内 | ✅ | ✅（21 < 30，cap 没截断） |
+| 灵动岛缩略图 | 每 step fade-in | ✅ 每 step 都有 `screenshotURL` 字段 |
+| `finalAnswer` markdown | SwiftUI 渲染 | 未在此次跑中肉眼对比（observer-client 不渲染 UI） |
+
+**判定**：
+- task 6.3 dev.sh ready：实测通过，可标 `[x]`（本节不改上文，仅在此声明）
+- task 6.5 飞书 IM ≤ 25 step：**消息确实发出但步数超出验收**，且完成路径依赖 VLM 自找 workaround
+  （见 §9.4），**不是 prompt 设计的预期路径**。仍判 `[-]`。
+
+### 9.3 实测暴露的 3 个 bug
+
+**Bug B — M6 自引回归（已 hotfix）**
+- 现象：task 第一次跑 step 5 报 `Error: Too many action execute failures: Unsupported key: esc`
+- 根因：`feishu_im_send.ts` `systemPromptAddendum` 第 28 行写了 `or press Esc to dismiss`，
+  VLM 照写 `hotkey(key='esc')`；但 `@ui-tars/operator-browser` 的
+  `KEY_MAPPINGS`（`node_modules/@ui-tars/operator-browser/dist/key-map.mjs`）只接受
+  `escape`，无 `esc` alias → throw → async-retry 三次后 task failed。
+- 修复：把 prompt 改成显式 `hotkey(key='escape')` + 加"绝不要写 'esc'"指令 + 给"点击模态外
+  空白处"作为退路。M6 archive 后的 hotfix commit。
+
+**Bug A — VLM 视觉 grounding 偏差（plan 风险 1 实现，未修）**
+- 现象：第二次跑（修了 Bug B 后）step 1/5/9/13/17/21/25/29 共 8 次点击都落在 `[14, 122]`
+  附近，每次都误中飞书顶部深色全局搜索栏（弹出 Cmd+K omni-search 模态）。VLM 每次 thought
+  都正确说"避免再点到顶部"但坐标完全没变。
+- 根因：Qwen3-VL-Plus 在飞书 React UI 上把顶部全局搜索栏视觉识别为"消息标题下方的浅色会话
+  搜索框"。prompt 文字层面已经强禁止（详细描述了两个搜索框区别），但模型层视觉 grounding
+  错位 —— prompt 力所不及。
+- 缓解：见 §8.1 的备选 path B（DOM 模式）。本回合未启动。
+
+**Bug C — runner 启动 profile 与 skill profile 不对齐（M5 设计盲点，未修）**
+- 现象：runner 重启后第一次跑飞书任务一定要重扫码，即使 `profiles/feishu/` 已经有 cookie。
+- 根因：[`runner.ts`](../../../runners/web-agent/src/runner.ts) L70 启动时 launch headless
+  用 `userDataDirFor('generic')`；[`login.ts`](../../../runners/web-agent/src/agent/login.ts)
+  Phase 1 `isLoggedIn` 在**当前 browserRef.current**（即 generic profile）上探测 feishu
+  cookie，永远查不到 → 必走 Phase 2 visible 扫码流程。Phase 2 之后 browserRef.current 才
+  切到 feishu profile，但 runner 重启后又回 generic。
+- 修复方向：runner 启动时不预 launch chromium，等第一个 task 来了根据 `skill.userDataDirSegment`
+  lazy launch；或者保持 generic 默认 + ensureLoggedIn 内部用 skill 的 user-data-dir 启
+  fresh headless 做 Phase 1 探测。属于下一回合（m7）范围。
+
+### 9.4 VLM 自适应（正面信号）
+
+step 31 VLM 自己想到 workaround：
+
+> "全局搜索模态框中若出现目标联系人，点击它仍能打开对应聊天（Feishu 实际支持此行为）。
+> 因此，下一步应点击'搜索历史'下的'梓文'标签。"
+
+—— 既然每次点会话搜索框都触发顶部 omni-search，那就**直接在 omni-search 模态里搜联系人**
+（飞书设计上 omni-search 也能跳到聊天）。这是 prompt 里**完全没教**的策略，VLM 自己适应了
+环境约束。这一行为提示：未来 prompt 可以**主动**把 omni-search 也写成合法路径之一，
+即使不修 Bug A，也能把完成步数压到 ≤ 25。
+
+### 9.5 给下一回合的输入
+
+- 必修：Bug C（profile 启动不对齐）—— 用户体验问题，每次重启都重扫太烦。
+- 推荐：Bug A 走 §8.1 的 path B（DOM `getByRole/getByText`）；或者更轻量地把 omni-search
+  写成"合法捷径"路径以绕过视觉 grounding 误差。
+- 可选：把 6.4 通用 google 任务和 demo.mov 录制（task 6.6）合并到下一回合的"demo 收尾"。
