@@ -149,6 +149,48 @@ describe('M7 feishu_im_send omni-search fallback + escape key correctness', () =
   });
 });
 
+describe('M7 hotfix feishu_doc_create + feishu_calendar_create prompt hardening', () => {
+  // After M7 archive, Run 1 of feishu_doc_create failed with the VLM
+  // emitting `click(start_box=[265, 100, 370, 160])` (no quotes) → the
+  // BrowserOperator parser saw startY as falsy → "Missing startX(...)
+  // or startY..." retry-3x failure. This hotfix added an ACTION SYNTAX
+  // section + OMNI-SEARCH FALLBACK + escape full-word convention to
+  // both doc and calendar skills (calendar shares the same risk class
+  // and is preventatively hardened even though it has not been
+  // end-to-end tested yet).
+
+  for (const skill of [feishu_doc_create, feishu_calendar_create]) {
+    describe(`${skill.id}`, () => {
+      it('addendum spells out ACTION SYNTAX requiring single-quoted start_box', () => {
+        const text = skill.systemPromptAddendum;
+        expect(text).toContain('ACTION SYNTAX');
+        // Must show the CORRECT form with single quotes.
+        expect(text).toMatch(/click\(start_box='\[/);
+        // Must explicitly call out the WRONG no-quote form so the VLM
+        // doesn't drift to it (the actual M7-Run-1 failure mode).
+        expect(text).toMatch(/start_box=\[/);
+        expect(text).toMatch(/WRONG/i);
+      });
+
+      it('addendum mandates the full word "escape" (not "esc")', () => {
+        const text = skill.systemPromptAddendum;
+        expect(text).toContain("hotkey(key='escape')");
+        expect(text).not.toMatch(/hotkey\(key='esc'\)/);
+        expect(text).not.toMatch(/press\s+Esc\b/);
+      });
+
+      it('addendum has an OMNI-SEARCH FALLBACK section (recovery target)', () => {
+        const text = skill.systemPromptAddendum;
+        expect(text).toContain('OMNI-SEARCH FALLBACK');
+        // Doc/calendar omni-search does NOT shortcut the create flow
+        // (unlike IM). The section MUST acknowledge this so VLM treats
+        // the modal as recovery-only, not as an alternative path.
+        expect(text).toMatch(/(does NOT|不会|recovery target|recover|escape out)/i);
+      });
+    });
+  }
+});
+
 describe('M6 loginURL convention (= startingURL)', () => {
   it('every feishu skill uses startingURL as its loginURL', () => {
     for (const skill of [feishu_im_send, feishu_calendar_create, feishu_doc_create]) {
