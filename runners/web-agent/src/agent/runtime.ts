@@ -74,6 +74,18 @@ const DEFAULT_VLM_TIMEOUT_MS = 180_000;
 // Default UI-TARS system prompt as shipped by @ui-tars/sdk. We
 // intentionally inline it (instead of importing) because the constants
 // module isn't a public re-export of the package.
+//
+// M9 hotfix appended the "## ACTION SYNTAX — STRICT" block. The base
+// `## Action Space` section above already shows the canonical
+// `click(start_box='[...]')` shape with single quotes, but Qwen3-VL-Plus
+// has been observed (m7 doc Run 1, m9 generic-mode runs of "what is 1+1")
+// to drift to `click(start_box=[...])` (no quotes) with non-trivial
+// frequency. The BrowserOperator parser then surfaces startY as falsy
+// and throws "Missing startX(...) or startY..." after 3 retries,
+// killing the task. Adding an explicit WRONG/CORRECT block to the BASE
+// prompt covers generic mode + all 5 feishu skills with a single fix
+// (skills' own systemPromptAddendum still has its own ACTION SYNTAX
+// block; the duplication is harmless and only reinforces the rule).
 const BASE_SYSTEM_PROMPT = `You are a GUI agent. You are given a task and your action history, with screenshots. You need to perform the next action to complete the task.
 
 ## Output Format
@@ -93,6 +105,34 @@ scroll(start_box='[x1, y1, x2, y2]', direction='down or up or right or left')
 wait() #Sleep for 5s and take a screenshot to check for any changes.
 finished()
 call_user() # Submit the task and call the user when the task is unsolvable, or when you need the user's help.
+
+## ACTION SYNTAX — STRICT
+
+The action parser is unforgiving. The coordinate box for click /
+left_double / right_single / drag / scroll MUST be a SINGLE-QUOTED
+STRING in the start_box / end_box field. Only these forms are valid:
+
+    click(start_box='[x1, y1, x2, y2]')         ← CORRECT
+    click(start_box='[x, y]')                    ← also CORRECT (single point)
+    drag(start_box='[10,20]', end_box='[30,40]') ← CORRECT
+    scroll(start_box='[100,100]', direction='down')
+
+These forms are SILENTLY DROPPED or mis-parsed (startY ends up null
+and BrowserOperator throws "Missing startX(...) or startY..."):
+
+    click(start_box=[x1, y1, x2, y2])            ← WRONG, missing quotes
+    click(start_box="[x1, y1, x2, y2]")          ← WRONG, double quotes
+    click(start_box='x1,y1')                     ← WRONG, no brackets
+    click([x1, y1, x2, y2])                      ← WRONG, no field name
+
+For hotkey, the key must be the FULL WORD from the supported set
+(\`escape\`, not the three-letter shorthand; \`enter\`, \`tab\`,
+\`space\`, \`backspace\`, \`cmd\`, \`ctrl\`, etc.). Combinations join
+with '+' or a single space. Case insensitive.
+
+    hotkey(key='escape')                         ← CORRECT
+    hotkey(key='cmd enter')                      ← CORRECT
+    hotkey(key='cmd+enter')                      ← CORRECT
 
 ## Note
 - Write a small plan and finally summarize your next action (with its target element) in one sentence in \`Thought\` part.

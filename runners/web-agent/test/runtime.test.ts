@@ -388,6 +388,14 @@ describe('M5 AgentRuntime — skill resolution + login precheck', () => {
     expect(runtime.capturedSystemPrompts[0]).toContain('You are a GUI agent');
     // base prompt ends with "## User Instruction\n" — no extra addendum after it.
     expect(runtime.capturedSystemPrompts[0].endsWith('## User Instruction\n')).toBe(true);
+    // M9 hotfix: ACTION SYNTAX block is part of the base prompt so
+    // generic mode (no skill) is also protected against the
+    // `start_box=[...]` no-quotes drift that crashed runner pages
+    // with "Missing startX(...) or startY..." retry loops.
+    expect(runtime.capturedSystemPrompts[0]).toContain('ACTION SYNTAX — STRICT');
+    expect(runtime.capturedSystemPrompts[0]).toMatch(/click\(start_box='\[/);
+    expect(runtime.capturedSystemPrompts[0]).toMatch(/WRONG/);
+    expect(runtime.capturedSystemPrompts[0]).toContain("hotkey(key='escape')");
   });
 
   it('skips login precheck and starting nav when skill is null', async () => {
