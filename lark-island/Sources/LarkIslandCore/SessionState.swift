@@ -235,8 +235,8 @@ public struct SessionState: Equatable, Sendable {
             guard var session = sessionsByID[payload.taskID] else {
                 return
             }
-            session.phase = .completed
-            session.summary = "\(payload.kind.rawValue): \(payload.message)"
+            session.phase = .failed
+            session.summary = "❌ \(payload.kind.rawValue): \(payload.message)"
             session.permissionRequest = nil
             session.questionPrompt = nil
             session.updatedAt = payload.timestamp

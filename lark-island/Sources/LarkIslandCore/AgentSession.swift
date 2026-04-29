@@ -42,6 +42,11 @@ public enum SessionPhase: String, Codable, Sendable, CaseIterable {
     case waitingForApproval
     case waitingForAnswer
     case completed
+    /// M9 hotfix: previously webAgentTaskFailed collapsed straight to
+    /// .completed which made the island look indistinguishable from a
+    /// happy-path finish. The island now keeps `.failed` separate so
+    /// the user sees a red FAILED pill + the failure summary.
+    case failed
 
     public var displayName: String {
         switch self {
@@ -53,12 +58,14 @@ public enum SessionPhase: String, Codable, Sendable, CaseIterable {
             "Needs answer"
         case .completed:
             "Completed"
+        case .failed:
+            "Failed"
         }
     }
 
     public var requiresAttention: Bool {
         switch self {
-        case .waitingForApproval, .waitingForAnswer:
+        case .waitingForApproval, .waitingForAnswer, .failed:
             true
         case .running, .completed:
             false

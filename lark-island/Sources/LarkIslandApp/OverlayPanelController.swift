@@ -598,6 +598,8 @@ final class OverlayPanelController {
             return questionCardHeight(for: session.questionPrompt) - 44
         case .completed:
             return completionBodyHeight(for: session, model: model)
+        case .failed:
+            return completionBodyHeight(for: session, model: model)
         case .running:
             return 0
         }

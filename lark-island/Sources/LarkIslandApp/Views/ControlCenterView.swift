@@ -106,6 +106,7 @@ struct ControlCenterView: View {
         case .waitingForApproval: return "等待批准"
         case .waitingForAnswer: return "等待回答"
         case .completed: return "已完成"
+        case .failed: return "失败"
         }
     }
 }

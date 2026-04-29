@@ -59,6 +59,8 @@ extension AgentSession {
             return "Question"
         case .completed:
             return "Completed"
+        case .failed:
+            return "Failed"
         }
     }
 
@@ -94,6 +96,7 @@ extension AgentSession {
         case .waitingForApproval: return permissionRequest?.summary ?? "Approval needed"
         case .waitingForAnswer: return questionPrompt?.title ?? "Answer needed"
         case .completed: return summary.isEmpty ? "Completed" : summary
+        case .failed: return summary.isEmpty ? "Failed" : summary
         }
     }
 
@@ -102,7 +105,7 @@ extension AgentSession {
         switch phase {
         case .running: return .live
         case .completed: return .idle
-        case .waitingForApproval, .waitingForAnswer: return .attention
+        case .waitingForApproval, .waitingForAnswer, .failed: return .attention
         }
     }
 

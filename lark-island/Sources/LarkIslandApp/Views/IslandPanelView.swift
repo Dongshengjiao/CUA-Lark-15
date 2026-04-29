@@ -274,6 +274,7 @@ struct IslandPanelView: View {
         case .waitingForApproval: return .orange
         case .waitingForAnswer: return .yellow
         case .completed: return .green
+        case .failed: return .red
         }
     }
 }
@@ -459,6 +460,7 @@ private struct OpenedTaskBody: View {
         case .waitingForApproval: label = "APPROVAL"; color = .orange
         case .waitingForAnswer:   label = "QUESTION"; color = .yellow
         case .completed:          label = "DONE";     color = .green
+        case .failed:             label = "FAILED";   color = .red
         }
         return Text(label)
             .font(.system(size: 9.5, weight: .heavy, design: .rounded))

@@ -47,7 +47,7 @@ enum IslandSurface: Equatable {
             return session.permissionRequest != nil
         case .waitingForAnswer:
             return session.questionPrompt != nil
-        case .completed:
+        case .completed, .failed:
             return true
         case .running:
             return false
