@@ -30,11 +30,21 @@ const GENERIC_SEGMENT = 'generic';
 // browser. Putting *something* on screen — a search bar, in this case —
 // gives it a workable starting context.
 //
-// For mainland-China demos where google.com is slow/unreliable, change
-// this constant to `https://www.bing.com` (or set the LARK_ISLAND_RUNNER_DEFAULT_URL
-// env var, honored below).
+// M9 hotfix #4 (2026-04-30 verify-run #5): default switched from
+// google.com → bing.com. M6/M7/M9 verify runs all hit the same
+// failure mode under realistic Mac corporate-network egress: Google
+// flags the puppeteer-driven Chromium as "unusual traffic" and serves
+// a CAPTCHA / select-the-bus image grid that the VLM cannot solve.
+// With M9's bot-bridge entry point, generic-mode tasks ("hello bot,
+// what is 1+1") now flow through this URL on every public IM ping,
+// so the captcha hit rate jumped from "rare doc-skill regression" to
+// "every other prompt fails with max-loop". Bing's anti-bot is
+// significantly looser on the same network and works for the simple
+// "search → read top result" flow generic mode actually exercises.
+// Override via LARK_ISLAND_RUNNER_DEFAULT_URL if you specifically
+// want google / baidu / a custom internal entry.
 const DEFAULT_STARTING_URL =
-  process.env.LARK_ISLAND_RUNNER_DEFAULT_URL ?? 'https://www.google.com';
+  process.env.LARK_ISLAND_RUNNER_DEFAULT_URL ?? 'https://www.bing.com';
 
 async function main() {
   const logger = new ConsoleLogger('[lark-island/runner]');
