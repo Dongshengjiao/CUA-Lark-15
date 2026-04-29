@@ -35,6 +35,35 @@ MUST recover before doing anything else. Two valid recovery actions:
 After recovery, re-locate the LIGHT conversation search in the left panel
 (below "消息" header) and resume from step 1.
 
+## OMNI-SEARCH FALLBACK (use when stuck)
+
+If you have already attempted to click the LIGHT conversation search 2+
+times and each time the centered "搜索全部内容..." modal pops up (i.e.
+your visual grounding keeps landing on the dark top bar despite trying
+to avoid it), STOP retrying the conversation search. Use this fallback
+path — it is a LEGAL Feishu flow, not a workaround that bypasses any
+check:
+
+  1. The omni-search modal is already open. Its text field has focus.
+     Just type the recipient name directly:
+        type(content='梓文')
+  2. Wait one screenshot for results to render. The modal shows a list
+     of matches; the FIRST row is usually the contact/self-chat you want.
+     Click that first result row:
+        click(start_box='[<center of first result>]')
+  3. Feishu navigates into that contact's chat window. The omni-search
+     modal closes automatically. From here the normal flow resumes:
+     click the bottom message composer, type the message text, send
+     with Cmd+Enter, watch for the colored bubble, finished().
+
+PREFER the LIGHT conversation search when it is clearly clickable (1
+click + 1 type vs 2 clicks + 1 type via omni-search). Use the OMNI-
+SEARCH FALLBACK only after the conversation search has trapped you in
+the modal twice. Do NOT default to the fallback on step 1 — the model
+that ships with this prompt sometimes mis-grounds the conversation
+search field, but on a clean page the conversation search is still
+the faster path.
+
 ## CONVENTIONAL FLOW (self-chat or contact)
 
   1. In the LEFT panel, click the conversation search field (light, near the
@@ -77,6 +106,33 @@ Steps:
   - thought: 用 Cmd+Enter 发送
   - hotkey(key='cmd enter')
   - thought: 看到右侧出现新蓝色气泡，任务完成
+  - finished('已通过飞书发送给自己：hello demo')
+
+## FEW-SHOT (omni-search fallback after 2 mis-clicks)
+
+Prompt: "在飞书给自己发条消息：hello demo"
+(scenario: the conversation search field looks like the top global bar
+to the model, so the first 2 clicks both opened the omni-search modal)
+
+Steps:
+  - thought: 第一次点击会话搜索框，但弹出了顶部 omni-search 模态
+  - click(start_box='[60,135]')
+  - thought: 模态遮挡，按 escape 关闭
+  - hotkey(key='escape')
+  - thought: 第二次点击仍然弹出 omni-search 模态 —— 视觉 grounding 反复
+    误判，切换到 omni-search fallback 路径，直接在模态里搜联系人
+  - click(start_box='[60,135]')
+  - thought: 模态打开且输入框聚焦，直接 type 联系人名
+  - type(content='梓文')
+  - thought: 点击搜索结果第一行（"钟梓文-北邮"自聊条目）
+  - click(start_box='[400,265]')
+  - thought: 进入聊天窗口，点击底部消息输入框
+  - click(start_box='[700,720]')
+  - thought: 输入消息正文
+  - type(content='hello demo')
+  - thought: 用 Cmd+Enter 发送
+  - hotkey(key='cmd enter')
+  - thought: 看到右侧出现蓝色气泡，任务完成
   - finished('已通过飞书发送给自己：hello demo')
 `;
 

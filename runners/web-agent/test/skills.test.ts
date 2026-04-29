@@ -118,6 +118,37 @@ describe('M6 systemPromptAddendum hardening', () => {
   });
 });
 
+describe('M7 feishu_im_send omni-search fallback + escape key correctness', () => {
+  it('feishu_im_send addendum spells out the OMNI-SEARCH FALLBACK section', () => {
+    const text = feishu_im_send.systemPromptAddendum;
+    // Section header is the canary: if this gets renamed/dropped, the
+    // VLM loses the explicit fallback path that M6 retrospective showed
+    // was needed (M6 archive §9 bug A).
+    expect(text).toContain('OMNI-SEARCH FALLBACK');
+    // Must mark the fallback path as legal (not a hack), so the VLM
+    // doesn't refuse to take it.
+    expect(text).toMatch(/LEGAL|legal Feishu flow|合法/);
+    // Must mark the conventional conversation search as preferred to
+    // avoid the VLM defaulting to omni-search and burning extra steps.
+    expect(text).toMatch(/PREFER|preferred|首选/i);
+    // Must include the trigger condition (multiple mis-clicks) — the
+    // fallback should be conditional, not unconditional.
+    expect(text).toMatch(/(2\+|twice|2 次|两次|stuck|after.*attempt)/i);
+  });
+
+  it('feishu_im_send addendum uses the full word "escape" for hotkey, not "esc"', () => {
+    const text = feishu_im_send.systemPromptAddendum;
+    // Must mention the literal hotkey call form so VLM mirrors the
+    // exact action syntax that BrowserOperator's KEY_MAPPINGS accepts
+    // (M6 archive §9 bug B: 'esc' alias is not in KEY_MAPPINGS).
+    expect(text).toContain("hotkey(key='escape')");
+    // Must NOT instruct the VLM to use the 'esc' shorthand anywhere.
+    // Look for telltale dangerous forms: hotkey(key='esc') or "press Esc".
+    expect(text).not.toMatch(/hotkey\(key='esc'\)/);
+    expect(text).not.toMatch(/press\s+Esc\b/);
+  });
+});
+
 describe('M6 loginURL convention (= startingURL)', () => {
   it('every feishu skill uses startingURL as its loginURL', () => {
     for (const skill of [feishu_im_send, feishu_calendar_create, feishu_doc_create]) {
