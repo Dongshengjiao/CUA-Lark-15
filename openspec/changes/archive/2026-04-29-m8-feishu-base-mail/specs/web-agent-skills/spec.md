@@ -1,8 +1,8 @@
 ## MODIFIED Requirements
 
-### Requirement: 内置飞书 skill 必须配置正确
+### Requirement: 三个内置飞书 skill 必须配置正确
 
-仓库 SHALL 包含以下五个内置飞书 skill 的实现，并把其中**四个**注册进 `registry.ts`（`feishu_mail_send` 是 M8 deferred stub，文件 + prompt 模板存在但暂不注册——M8 verify run 实测发现现用挑战赛账号未开通飞书邮箱产品，`mail.feishu.cn` 在用户浏览器返回 ERR_NAME_NOT_RESOLVED，强制路由到该 skill 会让 QR 登录流程死循环；待找到可达的 Mail 入口 URL 后单行恢复 import + array entry 即可解锁）：
+仓库 SHALL 包含以下五个内置飞书 skill 的实现（M8 修订：原 header 文字保留以维持 spec sync 兼容；本 requirement 实际覆盖五个 skill），并把其中**四个**注册进 `registry.ts`（`feishu_mail_send` 是 M8 deferred stub，文件 + prompt 模板存在但暂不注册——M8 verify run 实测发现现用挑战赛账号未开通飞书邮箱产品，`mail.feishu.cn` 在用户浏览器返回 ERR_NAME_NOT_RESOLVED，强制路由到该 skill 会让 QR 登录流程死循环；待找到可达的 Mail 入口 URL 后单行恢复 import + array entry 即可解锁）：
 
 **`feishu_im_send`**
 - `matchKeywords` 至少包含一个高信号中文 token（如 `消息`、`聊天`、`im`）和一个高信号英文 token（如 `message`、`chat`、`send im`）；不必使用组合词，单个 token 即可命中真实用户 prompt（实测 prompt `"在飞书给自己发条消息：xxx"` 必须能命中本 skill）。
@@ -126,9 +126,9 @@
 - **THEN** 字符串**不**包含 `hotkey(key='esc')`
 - **AND** 字符串**不**包含 `press Esc` 类指令
 
-### Requirement: 五个飞书 skill 的 loginURL 必须直接复用 startingURL
+### Requirement: 三个飞书 skill 的 loginURL 必须直接复用 startingURL
 
-每个内置飞书 skill MUST 把 `loginURL` 设置为与 `startingURL` 完全相等的值：
+每个内置飞书 skill MUST 把 `loginURL` 设置为与 `startingURL` 完全相等的值（M8 修订：原 header 保留 "三个"，实际现覆盖五个 skill）：
 
 - `feishu_im_send`: `loginURL = startingURL = "https://www.feishu.cn/messenger/"`
 - `feishu_mail_send`: `loginURL = startingURL = "https://mail.feishu.cn/"`
@@ -138,7 +138,7 @@
 
 理由：M5 实测发现 `https://passport.feishu.cn/` 直接访问返回 404；飞书的扫码登录页（`accounts.feishu.cn/...`）只有从需要登录态的页面被自动 redirect 时才能拿到带 `redirect_uri` 参数的正确 URL。让 visible chromium 在扫码模式 navigate 到 loginURL（= 业务入口页）时，飞书前端自身负责把未登录用户 redirect 到带二维码的登录页。
 
-#### Scenario: 五个飞书 skill 的 loginURL 等于 startingURL（M8 修订）
+#### Scenario: 三个飞书 skill 的 loginURL 等于 startingURL（M8 扩展为五个）
 - **WHEN** 读取任意飞书 skill
 - **THEN** `skill.loginURL === skill.startingURL`
 - **AND** `skill.loginURL` 指向 `feishu.cn` 子域
