@@ -12,6 +12,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RUNNER_DIR="$REPO_ROOT/runners/web-agent"
+BOT_DIR="$REPO_ROOT/runners/feishu-bot"
 APP_DIR="$REPO_ROOT/lark-island"
 LOG_DIR="$HOME/Library/Logs/LarkIsland"
 TODAY="$(date +%Y-%m-%d)"
@@ -46,17 +47,62 @@ APP_PID=$!
 print_step "waiting for runner to register..."
 mkdir -p "$LOG_DIR"
 DEADLINE=$(( $(date +%s) + 60 ))
+RUNNER_READY=0
 while (( $(date +%s) < DEADLINE )); do
   if [[ -f "$RUNNER_LOG" ]] && grep -q 'registered as webAgentRunner' "$RUNNER_LOG"; then
     print_step "runner ready ✅"
-    print_step "👉 Click the menubar globe (🌐) and submit a task."
-    print_step "   Press Ctrl+C to terminate the app + runner."
-    wait $APP_PID
-    exit 0
+    RUNNER_READY=1
+    break
   fi
   sleep 1
 done
 
-print_step "❌ runner did not register within 60s — check $RUNNER_LOG"
-kill $APP_PID 2>/dev/null || true
-exit 1
+if (( RUNNER_READY == 0 )); then
+  print_step "❌ runner did not register within 60s — check $RUNNER_LOG"
+  kill $APP_PID 2>/dev/null || true
+  exit 1
+fi
+
+# 6) (M9) Optionally spawn the Feishu bot bridge.
+#
+# Trigger: only when LARK_BOT_PROFILE env var is set. This keeps the
+# default `zsh scripts/dev.sh` flow lightweight (only LarkIslandApp +
+# runner). When the user wants Feishu IM as an input entry, they run
+# `LARK_BOT_PROFILE=challenge zsh scripts/dev.sh`.
+#
+# Constraint: lark-cli `event +subscribe` has a single-instance lock
+# per app/account. If the user is already running a manual subscribe
+# elsewhere, the bot bridge will fight it for events. README documents
+# this; nothing scripty to do here.
+BOT_PID=""
+if [[ -n "${LARK_BOT_PROFILE:-}" ]]; then
+  if [[ ! -d "$BOT_DIR/node_modules" ]]; then
+    print_step "installing feishu-bot dependencies (first run)..."
+    ( cd "$BOT_DIR" && npm install --silent )
+  fi
+  print_step "spawning feishu bot bridge (profile=$LARK_BOT_PROFILE)..."
+  ( cd "$BOT_DIR" && LARK_BOT_PROFILE="$LARK_BOT_PROFILE" \
+      LARK_BOT_ALLOWLIST="${LARK_BOT_ALLOWLIST:-}" \
+      LARK_BOT_LLM_PROFILE="${LARK_BOT_LLM_PROFILE:-qwen-default}" \
+      npx tsx src/main.ts ) &
+  BOT_PID=$!
+  print_step "  bot bridge pid=$BOT_PID"
+fi
+
+# 7) Cleanup on Ctrl+C / SIGTERM.
+cleanup() {
+  if [[ -n "$BOT_PID" ]]; then
+    kill "$BOT_PID" 2>/dev/null || true
+  fi
+  kill $APP_PID 2>/dev/null || true
+}
+trap cleanup INT TERM EXIT
+
+print_step "👉 Click the menubar globe (🌐) and submit a task."
+if [[ -n "$BOT_PID" ]]; then
+  print_step "   Or send a message to the Feishu bot under profile=$LARK_BOT_PROFILE."
+fi
+print_step "   Press Ctrl+C to terminate the app + runner${BOT_PID:+ + bot bridge}."
+
+wait $APP_PID
+exit 0
