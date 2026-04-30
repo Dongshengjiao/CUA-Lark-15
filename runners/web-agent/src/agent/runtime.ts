@@ -422,37 +422,34 @@ export class AgentRuntime {
       if (page.bringToFront) {
         await page.bringToFront().catch(() => undefined);
       }
-      // M12 hotfix v4: domcontentloaded fires too early for Feishu's
-      // React SPA — m12 verify-run #3 saw VLM thought "当前屏幕为
-      // 空白，说明可能处于 Feishu 页面加载中" repeatedly. Switch to
-      // 'load' (window.load: all resources fetched, including CSS
-      // and image bundles) and then wait an extra 3s for React to
-      // mount + first paint. Total budget ~25s before falling
-      // through; if SPA still isn't up by then the VLM screenshot
-      // path will surface the problem in step thoughts as before.
+      // M12 hotfix v5: do NOT wait for window.load — Feishu's
+      // messenger SPA opens long-polling sockets that keep
+      // window.load from firing forever. v4 used 'load' and step 1
+      // navigation timed out at 20s, leaving the page on about:blank
+      // and the VLM staring at a blank screen. Back to
+      // 'domcontentloaded' (DOM tree built, ~200ms) PLUS an extended
+      // 10s SPA-mount probe checking real React content has rendered.
       await page.goto(skill.startingURL, {
-        waitUntil: 'load',
+        waitUntil: 'domcontentloaded',
         timeout: 20_000,
       });
-      this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL} (load fired)`);
-      // Best-effort wait for visible app shell. We probe document.body
-      // having ≥ 5 child nodes as a cheap "SPA mounted something" signal.
-      // If waitForFunction isn't available on this page wrapper (very
-      // old puppeteer fork etc.), just sleep 3s.
+      this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL} (DCL fired)`);
       try {
         if (typeof page.waitForFunction === 'function') {
+          // Probe: body has at least 5 children AND those children
+          // collectively have ≥ 30 descendant elements (a bare
+          // chrome-spinner shell has 1-2 children but only a few
+          // descendants; a mounted Feishu SPA has thousands).
           await page.waitForFunction(
-            'document.body && document.body.children && document.body.children.length >= 5',
-            { timeout: 5_000 },
+            "document.body && document.body.children.length >= 5 && document.body.querySelectorAll('*').length >= 30",
+            { timeout: 10_000 },
           );
-          this.logger.info(`[runtime] SPA mounted (body has ≥5 children)`);
+          this.logger.info(`[runtime] SPA mounted (body shell loaded)`);
         } else {
-          await new Promise((r) => setTimeout(r, 3_000));
+          await new Promise((r) => setTimeout(r, 5_000));
         }
       } catch {
-        // SPA never mounted within 5s — fall through anyway, the VLM's
-        // own wait() loops can keep watching.
-        this.logger.warn(`[runtime] SPA mount probe timed out; continuing`);
+        this.logger.warn(`[runtime] SPA mount probe timed out (10s); continuing`);
       }
     } catch (err) {
       this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
