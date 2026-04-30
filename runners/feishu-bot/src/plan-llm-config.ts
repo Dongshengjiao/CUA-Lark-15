@@ -25,16 +25,28 @@ export type PlanLLMConfigResult =
 const DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 const DEFAULT_MODEL = 'qwen-plus';
 
+/**
+ * Treat empty strings as missing — dev.sh forwards env via inline
+ * `K="${K:-}"` overrides which produce empty strings (NOT undefined)
+ * on the child side. Plain `??` would happily accept "", so we coerce
+ * empty to undefined first.
+ */
+function nonEmpty(v: string | undefined): string | undefined {
+  if (v === undefined) return undefined;
+  if (v.length === 0) return undefined;
+  return v;
+}
+
 export function resolvePlanLLMConfig(env: NodeJS.ProcessEnv = process.env): PlanLLMConfigResult {
-  const baseURL = env.LARK_BOT_PLAN_LLM_BASE_URL ?? DEFAULT_BASE_URL;
-  const model = env.LARK_BOT_PLAN_LLM_MODEL ?? DEFAULT_MODEL;
+  const baseURL = nonEmpty(env.LARK_BOT_PLAN_LLM_BASE_URL) ?? DEFAULT_BASE_URL;
+  const model = nonEmpty(env.LARK_BOT_PLAN_LLM_MODEL) ?? DEFAULT_MODEL;
   // Prefer the workflow-specific key if set, otherwise fall back to
   // DASHSCOPE_API_KEY so single-tenant demos don't need a second key.
-  const apiKey = env.LARK_BOT_PLAN_LLM_API_KEY ?? env.DASHSCOPE_API_KEY;
-  if (!apiKey || apiKey.length === 0) {
+  const apiKey = nonEmpty(env.LARK_BOT_PLAN_LLM_API_KEY) ?? nonEmpty(env.DASHSCOPE_API_KEY);
+  if (!apiKey) {
     return {
       ok: false,
-      reason: 'neither LARK_BOT_PLAN_LLM_API_KEY nor DASHSCOPE_API_KEY is set',
+      reason: 'neither LARK_BOT_PLAN_LLM_API_KEY nor DASHSCOPE_API_KEY is set (or both empty)',
     };
   }
   return { ok: true, config: { baseURL, apiKey, model } };

@@ -46,6 +46,15 @@ describe('M11 splitWorkflow keyword gate', () => {
     expect(splitWorkflow('做 A，另外做 B')).toBe(true);
   });
 
+  it('also triggers when the conjunction follows a Chinese / English semicolon', () => {
+    // m11 hotfix: original regex only allowed [，,]; users in practice
+    // mix in "；" and ";" especially when the first clause is long.
+    // Spec demo prompt itself uses "；" so this case must work.
+    expect(splitWorkflow('在飞书创建一个日程，标题是 X，明天下午3点开始；并给自己发消息说日程已建')).toBe(true);
+    expect(splitWorkflow('do A; then send B')).toBe(false); // English then still excluded
+    expect(splitWorkflow('做 A；然后做 B')).toBe(true);
+  });
+
   it('returns true for 顺便 even without comma', () => {
     expect(splitWorkflow('在飞书创建日程 m11 顺便给我发消息')).toBe(true);
   });

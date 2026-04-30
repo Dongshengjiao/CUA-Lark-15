@@ -44,8 +44,9 @@ export type WorkflowPlanResult =
  * Only when this returns true do we spend an LLM plan call.
  *
  * Triggers on Chinese composition cues:
- *   - comma followed by 并 / 然后 / 接着 / 再 / 另外
- *   - 并通知 / 顺便 (no comma needed — strong signals)
+ *   - punctuation (Chinese / English comma / semicolon) followed by
+ *     并 / 然后 / 接着 / 再 / 另外
+ *   - 并通知 / 顺便 (no preceding punctuation needed — strong signals)
  *
  * Known limitation (m11): English keywords ("and", "then") are NOT
  * supported here because that would falsely trigger on ordinary
@@ -55,9 +56,11 @@ export type WorkflowPlanResult =
 export function splitWorkflow(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length === 0) return false;
-  // Pattern: comma + (并|然后|接着|再|另外) OR standalone 并通知/顺便.
+  // Pattern: (Chinese / English comma / semicolon) + (并|然后|接着|再|另外)
+  // OR standalone 并通知 / 顺便. We accept both "，" and ";" / ";"
+  // because users mix them in IM input.
   const conjPattern =
-    /[，,]\s*(?:并|然后|接着|再|另外)|并通知|顺便/u;
+    /[，,；;]\s*(?:并|然后|接着|再|另外)|并通知|顺便/u;
   return conjPattern.test(trimmed);
 }
 

@@ -253,6 +253,13 @@ async function main(): Promise<void> {
   log('info', `starting bot bridge (profile=${cfg.larkProfile}, socket=${cfg.socketPath})`);
 
   // 1) Spawn lark-cli event subscriber.
+  // M11: --force takes over any stale subscribe lock. Without this,
+  // every dev.sh restart would race the server's lock-release window
+  // (~30s) and the bot would self-terminate with
+  //   "another event +subscribe instance is already running"
+  // forcing a manual sleep before retry. Demo cadence requirement
+  // outweighs the multi-instance safety the lock was originally
+  // designed for; we have only one bot running at a time anyway.
   const sub = spawn(
     'lark-cli',
     [
@@ -265,6 +272,7 @@ async function main(): Promise<void> {
       '--event-types',
       'im.message.receive_v1',
       '--quiet',
+      '--force',
     ],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
