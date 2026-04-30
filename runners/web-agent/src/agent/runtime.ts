@@ -416,15 +416,44 @@ export class AgentRuntime {
         goto: (url: string, opts: unknown) => Promise<unknown>;
         bringToFront?: () => Promise<void>;
       };
-      const page = (await this.browserRef.current.createPage()) as unknown as AnyPage;
+      const page = (await this.browserRef.current.createPage()) as unknown as AnyPage & {
+        waitForFunction?: (fn: string, opts: unknown) => Promise<unknown>;
+      };
       if (page.bringToFront) {
         await page.bringToFront().catch(() => undefined);
       }
+      // M12 hotfix v4: domcontentloaded fires too early for Feishu's
+      // React SPA — m12 verify-run #3 saw VLM thought "当前屏幕为
+      // 空白，说明可能处于 Feishu 页面加载中" repeatedly. Switch to
+      // 'load' (window.load: all resources fetched, including CSS
+      // and image bundles) and then wait an extra 3s for React to
+      // mount + first paint. Total budget ~25s before falling
+      // through; if SPA still isn't up by then the VLM screenshot
+      // path will surface the problem in step thoughts as before.
       await page.goto(skill.startingURL, {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'load',
         timeout: 20_000,
       });
-      this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL}`);
+      this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL} (load fired)`);
+      // Best-effort wait for visible app shell. We probe document.body
+      // having ≥ 5 child nodes as a cheap "SPA mounted something" signal.
+      // If waitForFunction isn't available on this page wrapper (very
+      // old puppeteer fork etc.), just sleep 3s.
+      try {
+        if (typeof page.waitForFunction === 'function') {
+          await page.waitForFunction(
+            'document.body && document.body.children && document.body.children.length >= 5',
+            { timeout: 5_000 },
+          );
+          this.logger.info(`[runtime] SPA mounted (body has ≥5 children)`);
+        } else {
+          await new Promise((r) => setTimeout(r, 3_000));
+        }
+      } catch {
+        // SPA never mounted within 5s — fall through anyway, the VLM's
+        // own wait() loops can keep watching.
+        this.logger.warn(`[runtime] SPA mount probe timed out; continuing`);
+      }
     } catch (err) {
       this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
     }
