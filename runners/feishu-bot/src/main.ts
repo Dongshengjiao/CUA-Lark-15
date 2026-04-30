@@ -39,6 +39,14 @@ import {
   type IncomingTextMessage,
 } from './lark-event.js';
 import { replyText } from './reply.js';
+import { resolvePlanLLMConfig, type PlanLLMConfig } from './plan-llm-config.js';
+import {
+  callPlanLLM,
+  renderTemplate,
+  splitWorkflow,
+  type PlannedStep,
+  type WorkflowState,
+} from './workflow.js';
 
 // ---------------------------------------------------------------------------
 // Bridge envelope types — minimal subset of what we send/receive.
@@ -112,6 +120,13 @@ interface BotConfig {
   allowlistEnv: string | undefined;
   socketPath: string;
   llmProfile: string;
+  /**
+   * M11: plan-LLM credentials, resolved once at boot. Null when no
+   * key is available — the bot still works (single-task path stays
+   * functional) and any composite prompt simply falls back to single
+   * task with a heads-up reply.
+   */
+  planLLM: PlanLLMConfig | null;
 }
 
 function readConfig(env: NodeJS.ProcessEnv): BotConfig | { error: string } {
@@ -122,11 +137,13 @@ function readConfig(env: NodeJS.ProcessEnv): BotConfig | { error: string } {
   const socketPath =
     env.LARK_ISLAND_SOCKET_PATH ??
     join(homedir(), 'Library', 'Application Support', 'LarkIsland', 'bridge.sock');
+  const planLLMRes = resolvePlanLLMConfig(env);
   return {
     larkProfile,
     allowlistEnv: env.LARK_BOT_ALLOWLIST,
     socketPath,
     llmProfile: env.LARK_BOT_LLM_PROFILE ?? 'qwen-default',
+    planLLM: planLLMRes.ok ? planLLMRes.config : null,
   };
 }
 
@@ -140,10 +157,19 @@ interface InFlightTask {
   senderOpenID: string;
   prompt: string;
   startedAt: number;
-  // M10 task 2.1: heartbeat throttle state
+  // Original message id, kept for nonce generation across workflow steps
+  // and for taskID derivation (m11). Single-task path uses messageID
+  // == taskID-suffix; workflow path uses feishu-bot-<msgID>-step<i>.
+  messageID: string;
+  // M10 task 2.1: heartbeat throttle state — kept across workflow
+  // steps (m11 D6) so a 2-step workflow of ~5 step each still
+  // surfaces ≥ 1 heartbeat.
   totalSteps: number;
   lastHeartbeatStep: number;
   lastHeartbeatAt: number;
+  // M11: optional workflow context. null for single-task path
+  // (preserves m9 behavior bit-for-bit).
+  workflow: WorkflowState | null;
 }
 
 let inFlight: InFlightTask | null = null;
@@ -288,7 +314,7 @@ function installSubHandlers(sub: ChildProcess, sock: Socket, cfg: BotConfig): vo
   });
 }
 
-function installSockHandlers(sock: Socket, _cfg: BotConfig, sub: ChildProcess): void {
+function installSockHandlers(sock: Socket, cfg: BotConfig, sub: ChildProcess): void {
   let helloSeen = false;
   let buf = '';
   sock.on('data', (chunk: Buffer) => {
@@ -341,7 +367,7 @@ function installSockHandlers(sock: Socket, _cfg: BotConfig, sub: ChildProcess): 
             ? ((ev.payload as { taskID: string }).taskID)
             : '<no-taskID>';
         log('info', `bridge event: type=${ev.type} taskID=${taskID}`);
-        handleBridgeEvent(env, _cfg);
+        handleBridgeEvent(env, cfg, sock);
       } else if (env.type === 'command') {
         // BridgeServer never sends commands TO observers, so this is
         // unexpected — log it.
@@ -386,10 +412,42 @@ function handleNdjsonLine(line: string, sock: Socket, cfg: BotConfig): void {
     });
     return;
   }
-  dispatch(msg, sock, cfg);
+  // M11 task 2.3: dispatch path split. Composite prompts go through
+  // a plan-LLM call before fanning out to multiple runWebAgentTask
+  // envelopes; everything else uses the m9 single-task path verbatim.
+  void dispatch(msg, sock, cfg);
 }
 
-function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void {
+async function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): Promise<void> {
+  if (!splitWorkflow(msg.text)) {
+    dispatchSingle(msg, sock, cfg);
+    return;
+  }
+  if (!cfg.planLLM) {
+    log('warn', 'workflow keyword hit but planLLM not configured; falling back to single task');
+    dispatchSingle(msg, sock, cfg);
+    return;
+  }
+  log('info', `workflow keyword hit; calling plan-llm (model=${cfg.planLLM.model})...`);
+  const plan = await callPlanLLM(msg.text, cfg.planLLM);
+  if (!plan.ok) {
+    log('warn', `plan-llm fallback: ${plan.reason}`);
+    void replyText({
+      profile: cfg.larkProfile,
+      chatID: msg.chatID,
+      text: `工作流意图识别失败（${plan.reason}），作为单任务执行。`,
+      nonce: `wf-fallback-${msg.messageID}`,
+    }).then((r) => {
+      if (!r.ok) log('warn', `wf-fallback-reply failed: ${r.error}`);
+    });
+    dispatchSingle(msg, sock, cfg);
+    return;
+  }
+  log('info', `plan-llm ok: ${plan.steps.length} step(s) planned`);
+  dispatchWorkflow(msg, plan.steps, sock, cfg);
+}
+
+function dispatchSingle(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void {
   const taskID = `feishu-bot-${msg.messageID}`;
   inFlight = {
     taskID,
@@ -397,9 +455,11 @@ function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void 
     senderOpenID: msg.senderOpenID,
     prompt: msg.text,
     startedAt: Date.now(),
+    messageID: msg.messageID,
     totalSteps: 0,
     lastHeartbeatStep: 0,
     lastHeartbeatAt: 0,
+    workflow: null,
   };
   void replyText({
     profile: cfg.larkProfile,
@@ -421,10 +481,86 @@ function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void 
       },
     }),
   );
-  log('info', `dispatched runWebAgentTask{taskID=${taskID}}`);
+  log('info', `dispatched runWebAgentTask{taskID=${taskID}} (single)`);
 }
 
-function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg: BotConfig): void {
+function dispatchWorkflow(
+  msg: IncomingTextMessage,
+  steps: PlannedStep[],
+  sock: Socket,
+  cfg: BotConfig,
+): void {
+  inFlight = {
+    taskID: '', // set per step in dispatchWorkflowStep
+    chatID: msg.chatID,
+    senderOpenID: msg.senderOpenID,
+    prompt: msg.text,
+    startedAt: Date.now(),
+    messageID: msg.messageID,
+    totalSteps: 0,
+    lastHeartbeatStep: 0,
+    lastHeartbeatAt: 0,
+    workflow: {
+      steps,
+      currentIndex: 0,
+      results: [],
+      startedAt: Date.now(),
+    },
+  };
+  const overview = steps
+    .map((s, i) => `${i + 1}) ${s.description}`)
+    .join('\n');
+  void replyText({
+    profile: cfg.larkProfile,
+    chatID: msg.chatID,
+    text: `🔀 工作流开始（共 ${steps.length} 步）：\n${overview}`,
+    nonce: `wf-start-${msg.messageID}`,
+  }).then((r) => {
+    if (!r.ok) log('warn', `wf-start-reply failed: ${r.error}`);
+  });
+  dispatchWorkflowStep(sock, cfg);
+}
+
+function dispatchWorkflowStep(sock: Socket, cfg: BotConfig): void {
+  if (!inFlight || !inFlight.workflow) {
+    log('error', 'dispatchWorkflowStep called with no active workflow inFlight');
+    return;
+  }
+  const wf = inFlight.workflow;
+  const i = wf.currentIndex;
+  const step = wf.steps[i];
+  const prevResult = i > 0 ? wf.results[i - 1] ?? '' : '';
+  const renderedPrompt = renderTemplate(step.prompt, { prev_result: prevResult });
+  const taskID = `feishu-bot-${inFlight.messageID}-step${i}`;
+  inFlight.taskID = taskID;
+  void replyText({
+    profile: cfg.larkProfile,
+    chatID: inFlight.chatID,
+    text: `▶️ 步骤 ${i + 1}/${wf.steps.length} 开始：${step.description}`,
+    nonce: `wf-step-start-${inFlight.messageID}-${i}`,
+  }).then((r) => {
+    if (!r.ok) log('warn', `wf-step-start-reply failed: ${r.error}`);
+  });
+  sock.write(
+    encodeEnvelope({
+      type: 'command',
+      command: {
+        type: 'runWebAgentTask',
+        taskID,
+        prompt: renderedPrompt,
+        skill: step.skill ?? null,
+        profileName: cfg.llmProfile,
+      },
+    }),
+  );
+  log('info', `dispatched runWebAgentTask{taskID=${taskID}} (workflow step ${i + 1}/${wf.steps.length})`);
+}
+
+function handleBridgeEvent(
+  env: Extract<BridgeEnvelope, { type: 'event' }>,
+  cfg: BotConfig,
+  sock: Socket,
+): void {
   const ev = env.event;
   if (!inFlight) {
     log('warn', `bridge event ${ev.type} dropped: no inFlight task tracked`);
@@ -488,6 +624,39 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
       const ms = ev.payload.totalMs;
       const steps = ev.payload.totalSteps;
       const finalAnswer = ev.payload.finalAnswer || '(任务完成，但未生成最终回复)';
+      // M11: workflow path stays silent on per-step completion and
+      // either advances to next step or fires the wf-done summary.
+      // Single-task path keeps the m9 finalAnswer reply untouched.
+      if (inFlight.workflow !== null) {
+        const wf = inFlight.workflow;
+        const i = wf.currentIndex;
+        wf.results[i] = finalAnswer;
+        log(
+          'info',
+          `workflow step ${i + 1}/${wf.steps.length} completed (steps=${steps}, ${(ms / 1000).toFixed(1)}s)`,
+        );
+        if (i + 1 < wf.steps.length) {
+          wf.currentIndex = i + 1;
+          dispatchWorkflowStep(sock, cfg);
+          return;
+        }
+        const totalMs = Date.now() - wf.startedAt;
+        const bullets = wf.results
+          .map((res, idx) => `• 步骤 ${idx + 1}: ${truncateForSummary(res)}`)
+          .join('\n');
+        const text = `✅ 工作流完成（共 ${wf.steps.length} 步 / ${(totalMs / 1000).toFixed(1)}s）\n${bullets}`;
+        const captured = inFlight;
+        void replyText({
+          profile: cfg.larkProfile,
+          chatID: captured.chatID,
+          text,
+          nonce: `wf-done-${captured.messageID}`,
+        }).then((r) => {
+          if (!r.ok) log('warn', `wf-done-reply failed: ${r.error}`);
+        });
+        inFlight = null;
+        return;
+      }
       const summary =
         finalAnswer.length > 200
           ? `✅ 任务完成（${steps} 步 / ${(ms / 1000).toFixed(1)}s）\n\n${finalAnswer}`
@@ -505,6 +674,24 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
       return;
     }
     case 'webAgentTaskFailed': {
+      // M11: workflow path replaces the m9 single failure reply with
+      // a step-anchored failure message and aborts the whole workflow.
+      if (inFlight.workflow !== null) {
+        const wf = inFlight.workflow;
+        const i = wf.currentIndex;
+        const text = `❌ 工作流第 ${i + 1} 步（${wf.steps[i].description}）失败（${ev.payload.kind}）：${ev.payload.message}`;
+        log('info', `workflow step ${i + 1} failed (${ev.payload.kind}); aborting`);
+        void replyText({
+          profile: cfg.larkProfile,
+          chatID: inFlight.chatID,
+          text,
+          nonce: `wf-step-fail-${inFlight.messageID}-${i}`,
+        }).then((r) => {
+          if (!r.ok) log('warn', `wf-step-fail-reply failed: ${r.error}`);
+        });
+        inFlight = null;
+        return;
+      }
       const text = `❌ 任务失败（${ev.payload.kind}）：${ev.payload.message}`;
       log('info', `task ${inFlight.taskID} failed (${ev.payload.kind}); sending fail reply`);
       void replyText({
@@ -519,6 +706,19 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
       return;
     }
   }
+}
+
+/**
+ * Trim a step finalAnswer for the workflow summary bullet line so the
+ * combined reply doesn't blow past Feishu's 5000-char text-message
+ * limit. Per-step we keep up to 240 unicode code points; the parent
+ * reply tops out around 800 chars in practice for 2-3 step demos.
+ */
+function truncateForSummary(text: string, maxLen = 240): string {
+  if (!text) return '(empty)';
+  const cps = [...text];
+  if (cps.length <= maxLen) return text;
+  return cps.slice(0, maxLen).join('') + '...';
 }
 
 function shutdown(sub: ChildProcess, sock: Socket, code: number): void {
