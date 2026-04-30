@@ -360,16 +360,54 @@ export class AgentRuntime {
   }
 
   /**
-   * Test hook: override to skip the actual page navigation. Default
-   * opens a new page and goto's the skill's startingURL.
+   * Test hook: override to skip the actual page navigation.
+   *
+   * M12 hotfix: previously this called `browser.createPage()` and
+   * goto'd the new tab. The new tab opens as a background tab and
+   * `BrowserOperator.getActivePage()` (the helper the VLM uses for
+   * every screenshot + click) hits the *cached* `activePage` from
+   * the previous task instead — so step 1 of a workflow saw step
+   * 0's surface (e.g. a finished calendar grid) and the VLM
+   * called finished('') after a few silent steps. Workflow
+   * step-2 silently mis-routes were a direct consequence.
+   *
+   * Fix: reuse the existing active page and `goto()` it. This
+   * forces the same Page instance the BrowserOperator sees to
+   * navigate to the new skill's surface, so step 1 actually sees
+   * the IM/Drive/Calendar entry it expects.
+   *
+   * If for some reason there is no active page yet (very first
+   * task right after Chromium launch with no warm-up), fall back
+   * to creating one.
    */
   protected async navigateToStartingURL(skill: Skill): Promise<void> {
     try {
-      const page = await this.browserRef.current.createPage();
+      // We treat browser as a structurally-typed bag here because the
+      // upstream LocalBrowser type doesn't expose getActivePage in a
+      // public d.ts but does provide it at runtime. Same trick as
+      // BrowserOperator construction.
+      const browser = this.browserRef.current as unknown as {
+        getActivePage?: () => Promise<unknown>;
+      };
+      type AnyPage = {
+        goto: (url: string, opts: unknown) => Promise<unknown>;
+        bringToFront?: () => Promise<void>;
+      };
+      let page: AnyPage | null = null;
+      if (typeof browser.getActivePage === 'function') {
+        page = (await browser.getActivePage().catch(() => null)) as AnyPage | null;
+      }
+      if (!page) {
+        page = (await this.browserRef.current.createPage()) as unknown as AnyPage;
+      }
+      if (page.bringToFront) {
+        await page.bringToFront().catch(() => undefined);
+      }
       await page.goto(skill.startingURL, {
         waitUntil: 'domcontentloaded',
         timeout: 20_000,
       });
+      this.logger.info(`[runtime] navigated active page to ${skill.startingURL}`);
     } catch (err) {
       this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
     }
