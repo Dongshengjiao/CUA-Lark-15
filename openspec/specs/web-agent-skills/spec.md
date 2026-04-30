@@ -200,26 +200,25 @@ runner 在 launch 任何 LocalBrowser 之前 MUST 确保该 segment 目录存在
 
 ### Requirement: 三个飞书 skill 的 loginURL 必须直接复用 startingURL
 
-每个内置飞书 skill MUST 把 `loginURL` 设置为与 `startingURL` 完全相等的值（M8 修订：原 header 保留 "三个"，实际现覆盖五个 skill；M10 修订：calendar 由静态 URL 改为 tenant 子域 + env override）：
+每个内置飞书 skill MUST 把 `loginURL` 设置为与 `startingURL` 完全相等的值。M12 修订：`feishu_im_send` 的 startingURL 由主域 `https://www.feishu.cn/messenger/` 改为 tenant 子域 `https://${LARK_FEISHU_TENANT_DOMAIN ?? 'jcneyh7qlo8i.feishu.cn'}/messenger/`，与 m10 calendar 保持同样的 tenant 子域路由模式。
 
-- `feishu_im_send`: `loginURL = startingURL = "https://www.feishu.cn/messenger/"`
+- `feishu_im_send`: `loginURL = startingURL = \`https://${LARK_FEISHU_TENANT_DOMAIN ?? 'jcneyh7qlo8i.feishu.cn'}/messenger/\``（M12 修订）
 - `feishu_mail_send`: `loginURL = startingURL = "https://mail.feishu.cn/"`（M8 deferred stub，账号未开通邮箱）
 - `feishu_calendar_create`: `loginURL = startingURL = \`https://${LARK_FEISHU_TENANT_DOMAIN ?? 'jcneyh7qlo8i.feishu.cn'}/calendar/week\``（M10 修订）
 - `feishu_doc_create`: `loginURL = startingURL = "https://www.feishu.cn/drive/me/"`
 - `feishu_base_create`: `loginURL = startingURL = "https://www.feishu.cn/drive/me/"`
 
-理由：M5 实测发现 `https://passport.feishu.cn/` 直接访问返回 404；飞书的扫码登录页（`accounts.feishu.cn/...`）只有从需要登录态的页面被自动 redirect 时才能拿到带 `redirect_uri` 参数的正确 URL。让 visible chromium 在扫码模式 navigate 到 loginURL（= 业务入口页）时，飞书前端自身负责把未登录用户 redirect 到带二维码的登录页。
+理由（M12 修订）：m12 verify-runs #5–#8 实测发现，runner 在 tenant 子域（calendar）建立 cookie state 之后再 navigate 到主域 messenger（任意路径），puppeteer chromium 中 messenger SPA 都会 hang 在初始化阶段（SPA mount probe ≥ 100 elements 在 15s 内永不通过）。这是飞书 messenger SPA 跨域 cookie/Origin 校验的硬约束，runtime 端无法绕过。把 IM startingURL 也固定到 tenant 子域可以让 m13+ 的"per-skill chromium isolation"工作首先在 URL 层就预防同源问题；跨子域问题虽然依然存在，但 m12 v8 实测确认 tenant 子域 messenger 与 calendar 共享 cookie state 后 mount 行为更接近 m10 calendar 已知工作的路径（即"tenant 子域内"是相对一致的）。
 
-M10 修订：`feishu_calendar_create` 之前用 `https://calendar.feishu.cn/`（M5 起写死）和后来 m9 hotfix 用 `https://www.feishu.cn/messenger/`+sidebar 跳转都验证不通。前者 DNS 没 A 记录直接 ERR_NAME_NOT_RESOLVED；后者 puppeteer chromium 加载 messenger 后被前端 redirect 到 docs 主页，sidebar 看不到日历图标，VLM call_user 退出。M10 改用 tenant-routed URL `https://<tenant>.feishu.cn/calendar/week` 直达日历视图，由 `LARK_FEISHU_TENANT_DOMAIN` env 变量配置（默认值为挑战赛账号 `jcneyh7qlo8i.feishu.cn` 便于 demo），需要切其它 tenant 时通过 env 覆盖。
-
-#### Scenario: 五个飞书 skill 的 loginURL 等于 startingURL（M8 扩展为五个，M10 calendar URL 切到 tenant 路径）
+#### Scenario: 五个飞书 skill 的 loginURL 等于 startingURL（M12 全部走 tenant 子域 / 主域两类，约束不变）
 - **WHEN** 读取任意飞书 skill
 - **THEN** `skill.loginURL === skill.startingURL`
 - **AND** `skill.loginURL` 指向 `feishu.cn` 子域
 
-#### Scenario: feishu_calendar_create startingURL 包含 /calendar/week 路径（M10 新增）
-- **WHEN** 读取 `feishu_calendar_create.startingURL`
-- **THEN** 字符串 endsWith `/calendar/week`
+#### Scenario: feishu_im_send startingURL 含 /messenger/ 路径且使用 tenant 子域（M12 新增）
+- **WHEN** 读取 `feishu_im_send.startingURL`
+- **THEN** 字符串 endsWith `/messenger/`
 - **AND** 字符串包含 `.feishu.cn`
 - **AND** 字符串以 `https://` 开头
+- **AND** 默认 tenant domain 为 `jcneyh7qlo8i.feishu.cn`（挑战赛 demo 默认值，可由 LARK_FEISHU_TENANT_DOMAIN env 覆盖）
 
