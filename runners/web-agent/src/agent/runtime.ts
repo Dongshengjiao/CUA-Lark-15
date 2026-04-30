@@ -431,22 +431,60 @@ export class AgentRuntime {
         timeout: 20_000,
       });
       this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL} (DCL fired)`);
+      // M12 v7 stronger probe: poll until body has substantial content
+      // (≥ 100 descendants — the messenger SPA shell has dozens, a
+      // mounted SPA has thousands). The v5 threshold of 30 was met
+      // by a partially-rendered loading skeleton.
+      const probedPage = page as AnyPage & {
+        url?: () => string;
+        evaluate?: <T>(fn: () => T) => Promise<T>;
+      };
       try {
         if (typeof page.waitForFunction === 'function') {
-          // Probe: body has at least 5 children AND those children
-          // collectively have ≥ 30 descendant elements (a bare
-          // chrome-spinner shell has 1-2 children but only a few
-          // descendants; a mounted Feishu SPA has thousands).
           await page.waitForFunction(
-            "document.body && document.body.children.length >= 5 && document.body.querySelectorAll('*').length >= 30",
-            { timeout: 10_000 },
+            "document.body && document.body.querySelectorAll('*').length >= 100",
+            { timeout: 15_000 },
           );
-          this.logger.info(`[runtime] SPA mounted (body shell loaded)`);
+          this.logger.info(`[runtime] SPA mounted (body has ≥100 elements)`);
         } else {
           await new Promise((r) => setTimeout(r, 5_000));
         }
       } catch {
-        this.logger.warn(`[runtime] SPA mount probe timed out (10s); continuing`);
+        this.logger.warn(`[runtime] SPA mount probe timed out (15s); continuing`);
+      }
+      // Diagnostic: capture the page's current URL and element count
+      // so future verify-runs can immediately tell whether the page
+      // actually rendered the expected SPA. The VLM's screenshot
+      // path uses LocalBrowser.getActivePage which may return a
+      // different Page than the one we just navigated — comparing
+      // these diagnostics with the VLM's "blank screen" thoughts
+      // makes the dichotomy explicit.
+      try {
+        const currentURL = probedPage.url?.() ?? '<unknown>';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const evalAny = (probedPage as any).evaluate as
+          | ((script: string) => Promise<number>)
+          | undefined;
+        const elementCount = evalAny
+          ? await evalAny(
+              "(document.body && document.body.querySelectorAll('*').length) || -1",
+            )
+          : -1;
+        this.logger.info(`[runtime] post-nav diagnostic: url=${currentURL} elementCount=${elementCount}`);
+      } catch (err) {
+        this.logger.warn(`[runtime] post-nav diagnostic failed: ${err}`);
+      }
+      // M12 v7: also force the new page to be the LocalBrowser's
+      // cached activePage. LocalBrowser.createPage doesn't update
+      // its activePage field — getActivePage reverse-scans
+      // pages() on cache miss, but the *first* getActivePage call
+      // by BrowserOperator may grab an unrelated stale page (e.g.
+      // chromium's startup about:blank that's still in pages[]).
+      // Forcing the assignment avoids that race.
+      const browserMut = this.browserRef.current as unknown as { activePage?: unknown };
+      if ('activePage' in browserMut) {
+        browserMut.activePage = page;
+        this.logger.info(`[runtime] pinned LocalBrowser.activePage to fresh page`);
       }
     } catch (err) {
       this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
