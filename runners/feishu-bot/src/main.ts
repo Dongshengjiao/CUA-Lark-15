@@ -71,7 +71,12 @@ interface BridgeEvent {
       }
     | {
         type: 'webAgentStepUpdate';
-        payload: { taskID: string; stepIndex: number };
+        payload: {
+          taskID: string;
+          stepIndex: number;
+          thought?: string;
+          actionType?: string;
+        };
       }
     | {
         type: 'webAgentApprovalRequested';
@@ -135,9 +140,67 @@ interface InFlightTask {
   senderOpenID: string;
   prompt: string;
   startedAt: number;
+  // M10 task 2.1: heartbeat throttle state
+  totalSteps: number;
+  lastHeartbeatStep: number;
+  lastHeartbeatAt: number;
 }
 
 let inFlight: InFlightTask | null = null;
+
+// ---------------------------------------------------------------------------
+// M10 task 2: heartbeat throttle (pure helpers — exported for unit tests)
+// ---------------------------------------------------------------------------
+
+/**
+ * Step-based + time-based throttle for the bot's progress reply
+ * ("⏳ 已执行 X 步：…"). We emit one heartbeat ONLY when both
+ * conditions are satisfied:
+ *   - at least 5 webAgentStepUpdate events since the last heartbeat
+ *   - at least 15 seconds since the last heartbeat (or last heartbeat
+ *     never happened, signalled by lastHeartbeatAt === 0)
+ *
+ * The dual gate prevents two failure modes:
+ *   - rapid step bursts (5 step / 5s) flooding the chat
+ *   - long-wait single-step tasks (rare) sending no heartbeat
+ *
+ * lastHeartbeatAt === 0 represents "never sent a heartbeat for this
+ * inFlight"; we still require the 5-step gate so the very first
+ * 0-4 steps stay silent — same as the m9 ack/terminal two-message
+ * cadence for short tasks.
+ */
+export const HEARTBEAT_MIN_STEP_GAP = 5;
+export const HEARTBEAT_MIN_MS_GAP = 15_000;
+export const HEARTBEAT_THOUGHT_MAXLEN = 60;
+
+export interface HeartbeatState {
+  totalSteps: number;
+  lastHeartbeatStep: number;
+  lastHeartbeatAt: number;
+}
+
+export function decideHeartbeatTrigger(state: HeartbeatState, now: number): boolean {
+  const stepsSinceLast = state.totalSteps - state.lastHeartbeatStep;
+  const msSinceLast = state.lastHeartbeatAt === 0 ? Infinity : now - state.lastHeartbeatAt;
+  return stepsSinceLast >= HEARTBEAT_MIN_STEP_GAP && msSinceLast >= HEARTBEAT_MIN_MS_GAP;
+}
+
+/**
+ * Truncate by Unicode code points (so half emojis don't get sliced)
+ * to HEARTBEAT_THOUGHT_MAXLEN; append "..." marker if truncated.
+ */
+export function truncateThought(thought: string | undefined, maxLen = HEARTBEAT_THOUGHT_MAXLEN): string {
+  if (!thought) return '';
+  const cps = [...thought];
+  if (cps.length <= maxLen) return thought;
+  return cps.slice(0, maxLen).join('') + '...';
+}
+
+export function formatHeartbeatText(totalSteps: number, thought: string | undefined): string {
+  const trunc = truncateThought(thought);
+  if (!trunc) return `⏳ 已执行 ${totalSteps} 步…`;
+  return `⏳ 已执行 ${totalSteps} 步：${trunc}`;
+}
 
 // ---------------------------------------------------------------------------
 // Logger — one-liner, plain stderr
@@ -334,6 +397,9 @@ function dispatch(msg: IncomingTextMessage, sock: Socket, cfg: BotConfig): void 
     senderOpenID: msg.senderOpenID,
     prompt: msg.text,
     startedAt: Date.now(),
+    totalSteps: 0,
+    lastHeartbeatStep: 0,
+    lastHeartbeatAt: 0,
   };
   void replyText({
     profile: cfg.larkProfile,
@@ -377,9 +443,33 @@ function handleBridgeEvent(env: Extract<BridgeEnvelope, { type: 'event' }>, cfg:
   }
   switch (ev.type) {
     case 'webAgentTaskStarted':
-    case 'webAgentStepUpdate':
-      // Log only — don't spam the user with one Feishu message per step.
       return;
+    case 'webAgentStepUpdate': {
+      // M10: throttled progress heartbeat. Decision gate is pure
+      // (decideHeartbeatTrigger), the side-effect is one lark-cli
+      // im+messages-send call. inFlight is non-null here (guarded
+      // above).
+      inFlight.totalSteps += 1;
+      const now = Date.now();
+      if (!decideHeartbeatTrigger(inFlight, now)) {
+        return;
+      }
+      const text = formatHeartbeatText(inFlight.totalSteps, ev.payload.thought);
+      const stepIndex = ev.payload.stepIndex;
+      const captured = inFlight; // keep ref in case inFlight changes mid-await
+      log('info', `heartbeat step=${captured.totalSteps} stepIndex=${stepIndex}`);
+      void replyText({
+        profile: cfg.larkProfile,
+        chatID: captured.chatID,
+        text,
+        nonce: `heartbeat-${captured.taskID}-${stepIndex}`,
+      }).then((r) => {
+        if (!r.ok) log('warn', `heartbeat-reply failed: ${r.error}`);
+      });
+      inFlight.lastHeartbeatStep = inFlight.totalSteps;
+      inFlight.lastHeartbeatAt = now;
+      return;
+    }
     case 'webAgentApprovalRequested': {
       const text = ev.payload.message
         ? `${ev.payload.message}（请前往 Mac 桌面上的灵动岛 / 浏览器扫码）`
@@ -446,7 +536,18 @@ function shutdown(sub: ChildProcess, sock: Socket, code: number): void {
   setTimeout(() => process.exit(code), 200);
 }
 
-main().catch((err: unknown) => {
-  log('error', `fatal: ${(err as Error).stack ?? String(err)}`);
-  process.exit(1);
-});
+// Only run main() when this module is invoked as the process entry point.
+// Importing it for unit tests (e.g. test/heartbeat.test.ts pulling in
+// the heartbeat helpers) must NOT trigger the spawn / connect / exit
+// side effects.
+const isEntry =
+  process.argv[1] !== undefined &&
+  (import.meta.url === `file://${process.argv[1]}` ||
+    import.meta.url.endsWith(process.argv[1]));
+
+if (isEntry) {
+  main().catch((err: unknown) => {
+    log('error', `fatal: ${(err as Error).stack ?? String(err)}`);
+    process.exit(1);
+  });
+}
