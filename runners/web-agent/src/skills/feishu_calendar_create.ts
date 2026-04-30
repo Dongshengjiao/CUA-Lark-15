@@ -1,25 +1,38 @@
 // M5 task 1.4: Feishu Calendar event-create skill.
 // M7 hotfix: prompt hardening (parallel with feishu_doc_create) — added
 // ACTION SYNTAX + OMNI-SEARCH FALLBACK + escape full-word convention.
-// M9 hotfix (2026-04-30): startingURL changed from
-// `https://calendar.feishu.cn/` (which has NO A record — only MX —
-// and so resolves to ERR_NAME_NOT_RESOLVED in any browser) to the
-// shared messenger entry. The user navigates to Calendar via the
-// left-sidebar icon (the same workspace shell that hosts IM, Drive,
-// Sheets, Base, Calendar, etc., as `www.feishu.cn/<surface>` SPA
-// routes). M5/M6/M7/M8 all carried the broken URL because the
-// calendar skill had never been end-to-end tested.
+// M9 hotfix (2026-04-30): had switched startingURL to messenger entry
+// because calendar.feishu.cn has no A record. But puppeteer chromium
+// loading messenger ended up redirected to docs main page in the user's
+// session, sidebar didn't show the Calendar icon at the expected
+// position, the VLM eventually called call_user() and gave up.
+// M10 hotfix (2026-04-30): the actual reachable Feishu Calendar URL is
+// tenant-routed, e.g. `https://jcneyh7qlo8i.feishu.cn/calendar/week`
+// for the challenge account. We resolve it from
+// `LARK_FEISHU_TENANT_DOMAIN` env at module-load time with a hardcoded
+// challenge-account default. Override by setting the env when running
+// dev.sh against a different tenant. The skill drops m9's "messenger
+// sidebar nav" entry section because we now land directly on the
+// calendar grid.
 //
 // Drives the GUIAgent through Feishu Calendar to create a new event
 // with title / time / participants. Shares the .feishu.cn cookie jar
 // with the IM and Doc skills.
 
+const FEISHU_TENANT_DOMAIN =
+  process.env.LARK_FEISHU_TENANT_DOMAIN ?? 'jcneyh7qlo8i.feishu.cn';
+const CALENDAR_URL = `https://${FEISHU_TENANT_DOMAIN}/calendar/week`;
+
 import type { Skill } from './types.js';
 
 const systemPromptAddendum = `
-You are operating inside the Feishu Calendar web app at https://calendar.feishu.cn/.
-The app is a React SPA with custom interactive <div>s; click targets are
-typically 40-400 px wide and 30-80 px tall.
+You are operating inside the Feishu Calendar web app at the tenant-routed
+URL https://<tenant>.feishu.cn/calendar/week (e.g. for the challenge
+account: https://jcneyh7qlo8i.feishu.cn/calendar/week). The app is a
+React SPA with custom interactive <div>s; click targets are typically
+40-400 px wide and 30-80 px tall. The runner already lands you on the
+week-view calendar grid — you do NOT need to navigate from messenger or
+click any sidebar icon to switch surfaces.
 
 ## ACTION SYNTAX — coordinates MUST be inside single-quoted strings
 
@@ -72,31 +85,6 @@ the omni-search modal here is purely a recovery target. If you trap
 yourself in it, escape out and retry "新建日程". On the 3rd attempt,
 look for the create button further to the LEFT (typically x < 100)
 and a bit LOWER (typically y > 130) than the dark top bar.
-
-## ENTRY: switch from messenger to calendar surface FIRST
-
-The runner lands you on https://www.feishu.cn/messenger/ (the IM
-surface), NOT on the calendar surface directly. The first thing you
-must do is switch to the calendar surface via the left-edge
-navigation rail:
-
-  1. On the FAR LEFT of the page (x ≈ 80-130 in a typical 1280-px
-     viewport — outside the white message-list panel), there is a
-     vertical icon strip listing the Feishu surfaces: 消息 (messages) /
-     知识问答 / 云文档 (docs) / 推荐 / 多维表格 (base) / 视频会议 /
-     工作台 / 应用中心 / 通讯录 / **日历 (calendar)** / 飞书社 / 飞书
-     aily / 更多. Each item is an icon plus a Chinese label below.
-  2. Click the "日历" item (calendar icon — a square with a date
-     number inside, sometimes rendered as a small pictogram).
-  3. The whole right side switches from the IM panel layout to the
-     calendar grid (week/day view with dates across the top, time
-     slots down the side, an "新建日程" / "Create" button on the
-     LEFT below the mini-calendar/date-nav).
-
-Only after you see the calendar grid (date row + time grid) on
-screen do you proceed to the CONVENTIONAL FLOW below. If after one
-click on "日历" the page still shows messages, screenshot once
-again and re-locate the icon (the rail can be scrolled).
 
 ## CONVENTIONAL FLOW
 
@@ -157,9 +145,7 @@ the finished() string, because that loses what was actually saved.
 Prompt: "创建一个明天下午3点开始、1小时的会议，标题是项目同步"
 
 Steps:
-  - thought: 当前在 messenger（消息）页面，先点击左侧导航栏的"日历"图标切换到日历表面
-  - click(start_box='[60, 350, 100, 390]')   # 日历图标位置因 sidebar 实际坐标而变
-  - thought: 已进入日历视图（看到日期行 + 时间网格），点击左上"新建日程"按钮
+  - thought: 已直接落在日历周视图，点击左上角"创建日程"按钮
   - click(start_box='[40, 130, 130, 170]')
   - thought: 模态打开，点击标题输入框
   - click(start_box='[480, 200, 880, 240]')
@@ -191,11 +177,11 @@ export const feishu_calendar_create: Skill = {
   ],
   cookieDomain: '.feishu.cn',
   userDataDirSegment: 'feishu',
-  // M9 hotfix: calendar.feishu.cn has no A record (DNS shows only MX);
-  // any visit returns ERR_NAME_NOT_RESOLVED. Use the messenger entry
-  // (same as feishu_im_send) and let the prompt drive the VLM to
-  // click the left-sidebar "日历" icon to switch surfaces.
-  loginURL: 'https://www.feishu.cn/messenger/',
-  startingURL: 'https://www.feishu.cn/messenger/',
+  // M10 hotfix: tenant-routed URL resolved from LARK_FEISHU_TENANT_DOMAIN
+  // env (defaults to challenge-account tenant for demo). m9 had used
+  // messenger entry but puppeteer chromium ended up on docs main page
+  // and the sidebar nav failed.
+  loginURL: CALENDAR_URL,
+  startingURL: CALENDAR_URL,
   systemPromptAddendum,
 };
