@@ -320,6 +320,32 @@ describe('M6 loginURL convention (= startingURL)', () => {
   });
 });
 
+describe('M10 calendar startingURL switched to tenant-routed /calendar/week', () => {
+  // m9 used messenger entry + sidebar nav workaround; that failed in
+  // puppeteer chromium because messenger redirected to docs main page
+  // and the calendar sidebar icon was not where prompt expected it.
+  // m10 lands directly on the tenant calendar grid using
+  // LARK_FEISHU_TENANT_DOMAIN env (defaults to challenge-account host).
+
+  it('feishu_calendar_create.startingURL ends with /calendar/week and uses feishu.cn host', () => {
+    expect(feishu_calendar_create.startingURL).toMatch(/\.feishu\.cn\/calendar\/week$/);
+    expect(feishu_calendar_create.startingURL).toMatch(/^https:\/\//);
+    // loginURL must equal startingURL (M6 convention preserved).
+    expect(feishu_calendar_create.loginURL).toBe(feishu_calendar_create.startingURL);
+  });
+
+  it('feishu_calendar_create no longer instructs the VLM to nav from messenger sidebar', () => {
+    const text = feishu_calendar_create.systemPromptAddendum;
+    // The m9 hotfix section we deleted in m10:
+    expect(text).not.toContain('ENTRY: switch from messenger to calendar');
+    expect(text).not.toContain('左侧导航栏的"日历"图标');
+    expect(text).not.toContain('点击 sidebar');
+    // The new m10 banner clarifying the runner already lands on the
+    // calendar grid:
+    expect(text).toMatch(/(do NOT need to navigate from messenger|already lands you on the\s+week-view calendar grid)/);
+  });
+});
+
 describe('M5 defaultDetectLoggedIn', () => {
   function makePage(cookies: Array<{ name: string; domain: string; value?: string }>) {
     return {
