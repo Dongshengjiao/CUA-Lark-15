@@ -382,43 +382,40 @@ export class AgentRuntime {
    */
   protected async navigateToStartingURL(skill: Skill): Promise<void> {
     try {
-      // M12 hotfix v3: m12 verify-run #2 showed that reusing the
-      // existing page across SPA navigations (tenant calendar
-      // sub-domain → messenger main domain) leaves the page blank —
-      // VLM logs "page remains blank even after refreshing". The
-      // chromium SPA gets stuck between teardown of step 0's React
-      // state and initialization of the new surface's React app.
+      // M12 hotfix v6: previous v3 code accessed puppeteer's internal
+      // `browser.browser.pages()` which is not part of the public
+      // LocalBrowser surface. m12 verify-run #4 showed the close
+      // phase silently no-op'd (no log line emitted), step 1 never
+      // got a fresh page, and VLM stared at the leftover step 0
+      // calendar surface for 8 steps before giving up.
       //
-      // Robust fix: close the existing page(s) and open a fresh one
-      // for the new skill. LocalBrowser's getActivePage cache will
-      // see the old page is gone (evaluate throws), null itself out,
-      // and reverse-scan to find the fresh page on the next call.
-      // BrowserOperator (per-task) won't have a cached page yet.
-      //
-      // Defensive: if there are no existing pages (first task right
-      // after launch with no warm-up), skip the close phase.
-      const browser = this.browserRef.current as unknown as {
-        browser?: { pages?: () => Promise<Array<{ close: () => Promise<void> }>> };
-      };
-      try {
-        const pages = (await browser.browser?.pages?.()) ?? [];
-        for (const p of pages) {
-          await p.close().catch(() => undefined);
-        }
-        if (pages.length > 0) {
-          this.logger.info(`[runtime] closed ${pages.length} stale page(s) before nav`);
-        }
-      } catch (err) {
-        this.logger.warn(`[runtime] page close phase failed (continuing): ${err}`);
-      }
-
+      // v6 uses public-ish `LocalBrowser.getActivePage()` (already
+      // exercised by BrowserOperator) to grab whatever active page
+      // exists, then closes it. LocalBrowser will null out its
+      // cached activePage and the next createPage becomes the new
+      // active.
       type AnyPage = {
         goto: (url: string, opts: unknown) => Promise<unknown>;
         bringToFront?: () => Promise<void>;
-      };
-      const page = (await this.browserRef.current.createPage()) as unknown as AnyPage & {
+        close?: () => Promise<void>;
         waitForFunction?: (fn: string, opts: unknown) => Promise<unknown>;
       };
+      const browser = this.browserRef.current as unknown as {
+        getActivePage?: () => Promise<AnyPage | null>;
+      };
+      try {
+        const active = (await browser.getActivePage?.().catch(() => null)) as AnyPage | null;
+        if (active && active.close) {
+          await active.close().catch(() => undefined);
+          this.logger.info('[runtime] closed previous active page before nav');
+        } else {
+          this.logger.info('[runtime] no previous active page to close');
+        }
+      } catch (err) {
+        this.logger.warn(`[runtime] close-active-page phase failed (continuing): ${err}`);
+      }
+
+      const page = (await this.browserRef.current.createPage()) as unknown as AnyPage;
       if (page.bringToFront) {
         await page.bringToFront().catch(() => undefined);
       }
