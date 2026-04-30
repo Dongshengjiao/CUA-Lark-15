@@ -72,15 +72,24 @@ const PLAN_SYSTEM_PROMPT = `You are a Feishu workflow planner. Given a Chinese (
 
 {
   "steps": [
-    {"description": "<≤30 char Chinese gerund>", "prompt": "<atomic action>"},
+    {"description": "<≤30 char Chinese gerund>", "prompt": "<atomic action>", "skill": "<one of the 4 enum values>"},
     ...
   ]
 }
 
+The "skill" field is REQUIRED and MUST be one of these EXACT enum values:
+  - "feishu_im_send"          → IM 发消息（给自己 / 给某人 / 在群里）
+  - "feishu_calendar_create"  → 创建日程 / 会议 / 日历事件
+  - "feishu_doc_create"       → 创建文档 / 新建 docx
+  - "feishu_base_create"      → 创建多维表格 / bitable
+
 Rules:
 - Output 2 or 3 steps. If you cannot cleanly split into ≥ 2 steps, output {"steps": []}.
 - Each step.prompt must be phrased so the Feishu web-agent can execute it as a single isolated skill task. Choose the surface explicitly (在飞书日历 / 在飞书 IM / 在飞书云文档 / 在飞书多维表格 / 给自己 / 给某人).
-- For step i > 0 you MAY use the placeholder $prev_result inside step.prompt to reference the finalAnswer of step i-1 (a Chinese sentence describing what was just done). Insert it in a natural position so the next step can leverage that information (e.g. include the calendar title and time in a notification message).
+- step.skill MUST be set on EVERY step. The web-agent uses it to load the correct browser context — wrong skill will silently early-exit on the wrong surface.
+- For step i > 0 you MAY use the placeholder $prev_result inside step.prompt to reference the finalAnswer of step i-1. Place it AT THE END of the prompt, prefixed with explicit context like "上一步结果：" so the long previous-step text doesn't drown out the actual action. Example:
+    {"prompt": "在飞书 IM 给自己发条消息说\\"日程已建好\\"。上一步结果：$prev_result", "skill": "feishu_im_send"}
+- The actual action verb / target ("给自己发消息说X") MUST appear BEFORE $prev_result so the agent reads the real instruction first.
 - DO NOT include any commentary, markdown, or text outside the JSON.
 - DO NOT call any tools.
 - Output the JSON object verbatim, nothing else.`;
@@ -179,12 +188,31 @@ export function parsePlanResponseContent(content: string): WorkflowPlanResult {
       prompt: obj.prompt,
     };
     if (typeof obj.skill === 'string' && obj.skill.length > 0) {
-      step.skill = obj.skill;
+      // M12 hotfix: validate skill is one of the known enum values.
+      // Unknown / mistyped skill name → silently drop so runner falls
+      // back to keyword-based selectSkill. Known valid values are kept
+      // verbatim and forwarded to runner via runWebAgentTask.skill.
+      if (KNOWN_SKILLS.has(obj.skill)) {
+        step.skill = obj.skill;
+      }
     }
     steps.push(step);
   }
   return { ok: true, steps };
 }
+
+/**
+ * The four canonical skill IDs the bot bridge enforces in plan-LLM
+ * outputs. Mirrors the registry in
+ * runners/web-agent/src/skills/registry.ts (m11 active set, mail
+ * deferred). When the registry grows in m13+, update this constant.
+ */
+export const KNOWN_SKILLS = new Set([
+  'feishu_im_send',
+  'feishu_calendar_create',
+  'feishu_doc_create',
+  'feishu_base_create',
+]);
 
 function stripCodeFence(s: string): string {
   // Strip a single ```json ... ``` or ``` ... ``` wrapper if present.

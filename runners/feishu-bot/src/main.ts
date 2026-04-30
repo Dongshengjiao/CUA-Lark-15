@@ -561,7 +561,33 @@ function dispatchWorkflowStep(sock: Socket, cfg: BotConfig): void {
       },
     }),
   );
-  log('info', `dispatched runWebAgentTask{taskID=${taskID}} (workflow step ${i + 1}/${wf.steps.length})`);
+  // M12 hotfix B: log emitted prompt + skill so we can debug
+  // "step 2 finished too fast" issues. The first run of m11 had
+  // step 1 silently mis-routed because plan-LLM didn't emit skill
+  // and selectSkill keyword-routed off the long $prev_result body.
+  const promptPreview = renderedPrompt.length > 240
+    ? `${renderedPrompt.slice(0, 240)}...(+${renderedPrompt.length - 240} chars)`
+    : renderedPrompt;
+  log(
+    'info',
+    `dispatched runWebAgentTask{taskID=${taskID}} (workflow step ${i + 1}/${wf.steps.length}, skill=${step.skill ?? 'auto-route'}) prompt=${JSON.stringify(promptPreview)}`,
+  );
+}
+
+/**
+ * M12 hotfix C: detect a step likely ended without doing the real
+ * action. Two heuristics:
+ *   - finalAnswer is empty / whitespace
+ *   - finalAnswer matches the runner-side empty placeholder
+ * The wf-done summary then prefixes the bullet with ⚠️ instead of •
+ * so the user sees which step is suspicious. In a 2-step workflow
+ * this would have caught m11's silent step 1 mis-route.
+ */
+function isSuspiciousStepResult(finalAnswer: string): boolean {
+  const trimmed = finalAnswer.trim();
+  if (trimmed.length === 0) return true;
+  if (trimmed === '(任务完成，但未生成最终回复)') return true;
+  return false;
 }
 
 function handleBridgeEvent(
@@ -639,20 +665,34 @@ function handleBridgeEvent(
         const wf = inFlight.workflow;
         const i = wf.currentIndex;
         wf.results[i] = finalAnswer;
+        const suspicious = isSuspiciousStepResult(finalAnswer);
         log(
           'info',
-          `workflow step ${i + 1}/${wf.steps.length} completed (steps=${steps}, ${(ms / 1000).toFixed(1)}s)`,
+          `workflow step ${i + 1}/${wf.steps.length} completed (steps=${steps}, ${(ms / 1000).toFixed(1)}s${suspicious ? ', ⚠ suspicious empty/placeholder finalAnswer' : ''})`,
         );
         if (i + 1 < wf.steps.length) {
           wf.currentIndex = i + 1;
           dispatchWorkflowStep(sock, cfg);
           return;
         }
+        // M12 hotfix C: if any step has an empty / placeholder
+        // finalAnswer, mark it ⚠️ in the bullet list. m11 silently
+        // hid the step-2 IM mis-route; users have to see this.
         const totalMs = Date.now() - wf.startedAt;
+        let suspiciousCount = 0;
         const bullets = wf.results
-          .map((res, idx) => `• 步骤 ${idx + 1}: ${truncateForSummary(res)}`)
+          .map((res, idx) => {
+            const sus = isSuspiciousStepResult(res);
+            if (sus) suspiciousCount += 1;
+            const marker = sus ? '⚠️' : '•';
+            const desc = wf.steps[idx]?.description ?? `step ${idx + 1}`;
+            return `${marker} 步骤 ${idx + 1} (${desc}): ${truncateForSummary(res)}`;
+          })
           .join('\n');
-        const text = `✅ 工作流完成（共 ${wf.steps.length} 步 / ${(totalMs / 1000).toFixed(1)}s）\n${bullets}`;
+        const headline = suspiciousCount > 0
+          ? `⚠️ 工作流完成但 ${suspiciousCount} 个步骤可能未真执行（共 ${wf.steps.length} 步 / ${(totalMs / 1000).toFixed(1)}s）`
+          : `✅ 工作流完成（共 ${wf.steps.length} 步 / ${(totalMs / 1000).toFixed(1)}s）`;
+        const text = `${headline}\n${bullets}`;
         const captured = inFlight;
         void replyText({
           profile: cfg.larkProfile,

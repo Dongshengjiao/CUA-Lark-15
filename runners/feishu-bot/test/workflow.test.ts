@@ -9,6 +9,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
+  KNOWN_SKILLS,
   callPlanLLM,
   parsePlanResponseContent,
   renderTemplate,
@@ -191,6 +192,50 @@ describe('M11 parsePlanResponseContent JSON contract', () => {
       '\n```';
     const out = parsePlanResponseContent(fenced);
     expect(out.ok).toBe(true);
+  });
+
+  // M12 hotfix A: skill enum validation
+  it('M12: keeps step.skill if it is a known enum value', () => {
+    const out = parsePlanResponseContent(
+      JSON.stringify({
+        steps: [
+          { description: '创建日程', prompt: 'a', skill: 'feishu_calendar_create' },
+          { description: 'IM 通知', prompt: 'b', skill: 'feishu_im_send' },
+        ],
+      }),
+    );
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.steps[0].skill).toBe('feishu_calendar_create');
+      expect(out.steps[1].skill).toBe('feishu_im_send');
+    }
+  });
+
+  it('M12: silently drops unknown skill names so runner falls back to keyword routing', () => {
+    const out = parsePlanResponseContent(
+      JSON.stringify({
+        steps: [
+          { description: 'A', prompt: 'a', skill: 'feishu_unknown_skill' },
+          { description: 'B', prompt: 'b' },
+        ],
+      }),
+    );
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      // Mistyped enum → undefined (forwarded as null to runner so it
+      // does its own keyword-based selectSkill lookup).
+      expect(out.steps[0].skill).toBeUndefined();
+      expect(out.steps[1].skill).toBeUndefined();
+    }
+  });
+
+  it('M12: KNOWN_SKILLS contract covers the four active feishu skills', () => {
+    expect(KNOWN_SKILLS.has('feishu_im_send')).toBe(true);
+    expect(KNOWN_SKILLS.has('feishu_calendar_create')).toBe(true);
+    expect(KNOWN_SKILLS.has('feishu_doc_create')).toBe(true);
+    expect(KNOWN_SKILLS.has('feishu_base_create')).toBe(true);
+    // mail is m8-deferred; should NOT be accepted yet
+    expect(KNOWN_SKILLS.has('feishu_mail_send')).toBe(false);
   });
 
   it('clamps very long descriptions to 100 chars', () => {
