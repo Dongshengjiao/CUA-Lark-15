@@ -382,24 +382,41 @@ export class AgentRuntime {
    */
   protected async navigateToStartingURL(skill: Skill): Promise<void> {
     try {
-      // We treat browser as a structurally-typed bag here because the
-      // upstream LocalBrowser type doesn't expose getActivePage in a
-      // public d.ts but does provide it at runtime. Same trick as
-      // BrowserOperator construction.
+      // M12 hotfix v3: m12 verify-run #2 showed that reusing the
+      // existing page across SPA navigations (tenant calendar
+      // sub-domain → messenger main domain) leaves the page blank —
+      // VLM logs "page remains blank even after refreshing". The
+      // chromium SPA gets stuck between teardown of step 0's React
+      // state and initialization of the new surface's React app.
+      //
+      // Robust fix: close the existing page(s) and open a fresh one
+      // for the new skill. LocalBrowser's getActivePage cache will
+      // see the old page is gone (evaluate throws), null itself out,
+      // and reverse-scan to find the fresh page on the next call.
+      // BrowserOperator (per-task) won't have a cached page yet.
+      //
+      // Defensive: if there are no existing pages (first task right
+      // after launch with no warm-up), skip the close phase.
       const browser = this.browserRef.current as unknown as {
-        getActivePage?: () => Promise<unknown>;
+        browser?: { pages?: () => Promise<Array<{ close: () => Promise<void> }>> };
       };
+      try {
+        const pages = (await browser.browser?.pages?.()) ?? [];
+        for (const p of pages) {
+          await p.close().catch(() => undefined);
+        }
+        if (pages.length > 0) {
+          this.logger.info(`[runtime] closed ${pages.length} stale page(s) before nav`);
+        }
+      } catch (err) {
+        this.logger.warn(`[runtime] page close phase failed (continuing): ${err}`);
+      }
+
       type AnyPage = {
         goto: (url: string, opts: unknown) => Promise<unknown>;
         bringToFront?: () => Promise<void>;
       };
-      let page: AnyPage | null = null;
-      if (typeof browser.getActivePage === 'function') {
-        page = (await browser.getActivePage().catch(() => null)) as AnyPage | null;
-      }
-      if (!page) {
-        page = (await this.browserRef.current.createPage()) as unknown as AnyPage;
-      }
+      const page = (await this.browserRef.current.createPage()) as unknown as AnyPage;
       if (page.bringToFront) {
         await page.bringToFront().catch(() => undefined);
       }
@@ -407,7 +424,7 @@ export class AgentRuntime {
         waitUntil: 'domcontentloaded',
         timeout: 20_000,
       });
-      this.logger.info(`[runtime] navigated active page to ${skill.startingURL}`);
+      this.logger.info(`[runtime] navigated fresh page to ${skill.startingURL}`);
     } catch (err) {
       this.logger.warn(`[runtime] startingURL nav failed: ${err}`);
     }
