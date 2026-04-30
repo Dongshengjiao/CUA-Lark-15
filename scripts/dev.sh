@@ -28,6 +28,19 @@ if [[ ! -d "$RUNNER_DIR/node_modules" ]]; then
   ( cd "$RUNNER_DIR" && npm install --silent )
 fi
 
+# M11: source web-agent/.env into the dev.sh process so that env-driven
+# settings (DASHSCOPE_API_KEY, LARK_BOT_PLAN_LLM_*, etc.) propagate to
+# every child we spawn (LarkIslandApp → runner / bot bridge). Runner
+# itself uses dotenv-runtime, but the bot bridge does not, so this
+# script-level source is the simplest single-source-of-truth fix.
+if [[ -f "$RUNNER_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$RUNNER_DIR/.env"
+  set +a
+  print_step "loaded env from $RUNNER_DIR/.env"
+fi
+
 # 2) Make sure swift toolchain is on PATH (Homebrew keg-only on macOS).
 if [[ -d /opt/homebrew/opt/swift/bin ]]; then
   export PATH="/opt/homebrew/opt/swift/bin:$PATH"
@@ -94,9 +107,18 @@ if [[ -n "${LARK_BOT_PROFILE:-}" ]]; then
     ( cd "$BOT_DIR" && npm install --silent )
   fi
   print_step "spawning feishu bot bridge (profile=$LARK_BOT_PROFILE)..."
+  # M11: forward plan-LLM env so the bot can split composite prompts
+  # into multi-step workflows. Falls back to single-task path if no
+  # key is reachable (m11 fail-safe spec). DASHSCOPE_API_KEY is the
+  # default, since m5 the runner uses it as well so demos only need
+  # one key.
   ( cd "$BOT_DIR" && LARK_BOT_PROFILE="$LARK_BOT_PROFILE" \
       LARK_BOT_ALLOWLIST="${LARK_BOT_ALLOWLIST:-}" \
       LARK_BOT_LLM_PROFILE="${LARK_BOT_LLM_PROFILE:-qwen-default}" \
+      DASHSCOPE_API_KEY="${DASHSCOPE_API_KEY:-}" \
+      LARK_BOT_PLAN_LLM_BASE_URL="${LARK_BOT_PLAN_LLM_BASE_URL:-}" \
+      LARK_BOT_PLAN_LLM_API_KEY="${LARK_BOT_PLAN_LLM_API_KEY:-}" \
+      LARK_BOT_PLAN_LLM_MODEL="${LARK_BOT_PLAN_LLM_MODEL:-}" \
       npx tsx src/main.ts ) &
   BOT_PID=$!
   print_step "  bot bridge pid=$BOT_PID"
