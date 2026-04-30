@@ -4,8 +4,28 @@
 // message to a specific contact or group. The system prompt biases the
 // VLM towards the conventional UI flow (search contact → input
 // message → send) and supplies coordinate hints for the React app.
+//
+// M12 v8 hotfix (2026-04-30): startingURL changed from
+// `https://www.feishu.cn/messenger/` (main domain) to the
+// tenant-routed `https://${TENANT_DOMAIN}/messenger/`. m12 verify-runs
+// #5–#7 reproduced a "messenger main domain doesn't render in
+// chromium" bug — VLM saw blank screen, runner SPA mount probe timed
+// out at 15s. The tenant subdomain (e.g. jcneyh7qlo8i.feishu.cn)
+// shares cookies with calendar's tenant subdomain (m10 hotfix) and
+// the messenger SPA renders properly there. m9 had been able to use
+// the main domain only because the chromium was freshly launched
+// with no prior tenant-subdomain navigation; m12 workflows always
+// touch tenant first via calendar.
+//
+// Same env-driven default value as calendar: read from
+// LARK_FEISHU_TENANT_DOMAIN with the challenge-account host as
+// fallback. Override at dev.sh time when targeting a different tenant.
 
 import type { Skill } from './types.js';
+
+const FEISHU_TENANT_DOMAIN =
+  process.env.LARK_FEISHU_TENANT_DOMAIN ?? 'jcneyh7qlo8i.feishu.cn';
+const MESSENGER_URL = `https://${FEISHU_TENANT_DOMAIN}/messenger/`;
 
 const systemPromptAddendum = `
 You are operating inside the Feishu (Lark) web app at https://www.feishu.cn/messenger/.
@@ -162,7 +182,7 @@ export const feishu_im_send: Skill = {
   // 是从 messenger / drive / calendar 这种登录态页面被自动 redirect
   // 出来的。所以让 loginURL 直接指向 startingURL，让飞书前端自己接管
   // 跳转到带二维码的登录页（同源 cookie 也直接落对了 user-data-dir）。
-  loginURL: 'https://www.feishu.cn/messenger/',
-  startingURL: 'https://www.feishu.cn/messenger/',
+  loginURL: MESSENGER_URL,
+  startingURL: MESSENGER_URL,
   systemPromptAddendum,
 };
