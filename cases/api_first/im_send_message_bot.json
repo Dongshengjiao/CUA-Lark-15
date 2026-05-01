@@ -1,0 +1,26 @@
+{
+  "id": "api_first_im_send_message_bot_v1",
+  "name": "Send a Feishu message with lark-cli bot identity",
+  "product": "im",
+  "goal": "Use Feishu CLI and bot identity to send a message directly through OpenAPI.",
+  "expected": "CUA-Lark API IM Demo",
+  "steps": [
+    {
+      "id": "send_message",
+      "action": "lark_cli",
+      "target": "im +messages-send",
+      "metadata": {
+        "command": [
+          "im",
+          "+messages-send",
+          "--chat-id",
+          "REPLACE_WITH_OC_CHAT_ID",
+          "--text",
+          "CUA-Lark API IM Demo"
+        ],
+        "as_identity": "bot",
+        "expected_stdout_contains": "CUA-Lark API IM Demo"
+      }
+    }
+  ]
+}

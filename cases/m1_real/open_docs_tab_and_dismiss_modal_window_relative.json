@@ -1,0 +1,61 @@
+{
+  "id": "m1_real_open_docs_tab_and_dismiss_modal_window_relative_v1",
+  "name": "Open Feishu Docs tab and dismiss the install recommendation modal",
+  "product": "docs",
+  "goal": "Open the Docs area in Feishu and clear the recommendation modal if it appears.",
+  "expected": "close modal",
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "click_docs_tab",
+      "action": "click",
+      "target": "云文档",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.034,
+        "y_ratio": 0.254
+      }
+    },
+    {
+      "id": "wait_after_tab_click",
+      "action": "wait",
+      "target": "云文档",
+      "value": "1"
+    },
+    {
+      "id": "click_install_modal_close_button",
+      "action": "click",
+      "target": "close modal",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.828,
+        "y_ratio": 0.101
+      }
+    },
+    {
+      "id": "wait_after_modal_recovery",
+      "action": "wait",
+      "target": "recovered docs view",
+      "value": "1"
+    },
+    {
+      "id": "escape_fallback",
+      "action": "hotkey",
+      "target": "active modal",
+      "value": "escape"
+    }
+  ]
+}

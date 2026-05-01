@@ -1,0 +1,33 @@
+{
+  "id": "m1_real_click_search_bar_window_relative_v1",
+  "name": "Click Feishu search using window-relative coordinates",
+  "product": "im",
+  "goal": "Click the top search button area in the current Feishu window.",
+  "expected": "搜索",
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "click_search_button",
+      "action": "click",
+      "target": "搜索（⌘＋K）",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.058,
+        "y_ratio": 0.084
+      }
+    }
+  ]
+}

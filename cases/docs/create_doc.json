@@ -1,0 +1,25 @@
+{
+  "id": "docs_create_doc_v1",
+  "name": "Create a docs page with a project title",
+  "product": "docs",
+  "goal": "Create a new document and enter a project status title.",
+  "expected": "2026 Q2 Project Update",
+  "steps": [
+    {
+      "id": "open_docs",
+      "action": "click",
+      "target": "docs navigation"
+    },
+    {
+      "id": "create_doc",
+      "action": "click",
+      "target": "new document button"
+    },
+    {
+      "id": "input_title",
+      "action": "type",
+      "target": "document title",
+      "value": "2026 Q2 Project Update"
+    }
+  ]
+}

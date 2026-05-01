@@ -1,0 +1,26 @@
+{
+  "id": "api_first_docs_create_doc_bot_v1",
+  "name": "Create a Feishu doc with lark-cli bot identity",
+  "product": "docs",
+  "goal": "Use Feishu CLI and bot identity to create a document directly through OpenAPI.",
+  "expected": "CUA-Lark API Doc Demo",
+  "steps": [
+    {
+      "id": "create_doc",
+      "action": "lark_cli",
+      "target": "docs +create",
+      "metadata": {
+        "command": [
+          "docs",
+          "+create",
+          "--title",
+          "CUA-Lark API Doc Demo",
+          "--markdown",
+          "# CUA-Lark API Doc Demo\n\nThis document was created through the Feishu CLI API-first workflow."
+        ],
+        "as_identity": "bot",
+        "expected_stdout_contains": "CUA-Lark API Doc Demo"
+      }
+    }
+  ]
+}

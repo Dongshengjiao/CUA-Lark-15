@@ -20,6 +20,7 @@ venv/
 reports/runs/
 reports/latest/
 reports/screenshots/
+reports/batch/
 
 # Local secrets
 .env

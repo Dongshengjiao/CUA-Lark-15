@@ -1,0 +1,15 @@
+{
+  "id": "m1_type_search_keyword_v1",
+  "name": "Type a keyword into Feishu search",
+  "product": "im",
+  "goal": "Type a search keyword into the active Feishu search input.",
+  "expected": "Weekly Sync",
+  "steps": [
+    {
+      "id": "type_keyword",
+      "action": "type",
+      "target": "search input",
+      "value": "Weekly Sync"
+    }
+  ]
+}

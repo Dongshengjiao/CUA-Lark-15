@@ -1,0 +1,119 @@
+{
+  "id": "m2_real_calendar_create_event_minimal_v1",
+  "name": "Create a minimal Feishu calendar event",
+  "product": "calendar",
+  "goal": "Open the create-event window, type a title, and save a minimal calendar event.",
+  "expected": "CUA-Lark M2 Demo",
+  "verifications": [
+    {
+      "id": "calendar_final_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "calendar_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "click",
+      "target": "日历",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["日历"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "calendar",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["创建日程"],
+        "accessibility_hint": "top_right",
+        "recognition_first": true,
+        "x_ratio": 0.888,
+        "y_ratio": 0.040,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "post_accessibility_retries": 4,
+        "post_accessibility_delay_seconds": 0.5
+      }
+    },
+    {
+      "id": "wait_for_create_window",
+      "action": "wait",
+      "target": "create event window",
+      "value": "2"
+    },
+    {
+      "id": "type_event_title",
+      "action": "type",
+      "target": "添加主题",
+      "value": "CUA-Lark M2 Demo",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    },
+    {
+      "id": "wait_after_typing",
+      "action": "wait",
+      "target": "draft event title",
+      "value": "1"
+    },
+    {
+      "id": "save_event",
+      "action": "click",
+      "target": "保存",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["保存"],
+        "x_ratio": 0.546,
+        "y_ratio": 0.932,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    }
+  ]
+}

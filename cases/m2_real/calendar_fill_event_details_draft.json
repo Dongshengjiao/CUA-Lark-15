@@ -1,0 +1,213 @@
+{
+  "id": "m2_real_calendar_fill_event_details_draft_v1",
+  "name": "Fill a draft calendar event with title and description",
+  "product": "calendar",
+  "goal": "Open the calendar create-event window, enter a title, reveal the description area, and type a draft description without saving.",
+  "expected": "CUA-Lark M2 detailed draft",
+  "verifications": [
+    {
+      "id": "calendar_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "calendar_create_window_title",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_title",
+        "contains": "创建日程"
+      }
+    },
+    {
+      "id": "calendar_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_name": "Lark",
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "dismiss_startup_overlay",
+      "action": "hotkey",
+      "target": "startup overlay",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      }
+    },
+    {
+      "id": "wait_after_startup_dismiss",
+      "action": "wait",
+      "target": "startup dismiss",
+      "value": "0.8"
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "click",
+      "target": "日历",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["日历"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "calendar",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reactivate_feishu_for_calendar",
+            "action": "activate_app",
+            "target": "desktop",
+            "metadata": {
+              "app_name": "Lark",
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+            }
+          },
+          {
+            "id": "wait_after_calendar_refocus",
+            "action": "wait",
+            "target": "calendar refocus",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["创建日程"],
+        "accessibility_hint": "top_right",
+        "recognition_first": true,
+        "pre_accessibility_retries": 4,
+        "pre_accessibility_delay_seconds": 0.5,
+        "x_ratio": 0.888,
+        "y_ratio": 0.040,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reopen_calendar_tab",
+            "action": "click",
+            "target": "日历",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+              "accessibility_labels": ["日历"],
+              "accessibility_hint": "product_rail",
+              "recognition_first": true,
+              "product_rail_target": "calendar"
+            }
+          },
+          {
+            "id": "wait_after_calendar_reopen",
+            "action": "wait",
+            "target": "calendar reopen",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_create_window",
+      "action": "wait",
+      "target": "create event window",
+      "value": "2.5"
+    },
+    {
+      "id": "type_event_title",
+      "action": "type",
+      "target": "添加主题",
+      "value": "CUA-Lark M2 detailed draft",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    },
+    {
+      "id": "open_description_editor",
+      "action": "click",
+      "target": "添加描述",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["添加描述"],
+        "recognition_first": true,
+        "pre_accessibility_retries": 4,
+        "pre_accessibility_delay_seconds": 0.5,
+        "x_ratio": 0.113,
+        "y_ratio": 0.776,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "wait_for_create_window_recovery",
+            "action": "wait",
+            "target": "create window stability",
+            "value": "1"
+          },
+          {
+            "id": "refocus_create_window_title",
+            "action": "click",
+            "target": "添加主题",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+              "x_ratio": 0.207,
+              "y_ratio": 0.084
+            }
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_description_editor",
+      "action": "wait",
+      "target": "description editor",
+      "value": "1"
+    },
+    {
+      "id": "type_event_description",
+      "action": "type",
+      "target": "description editor",
+      "value": "This is a richer M2 calendar draft prepared through the desktop CUA workflow.",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    }
+  ]
+}

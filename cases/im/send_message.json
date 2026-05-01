@@ -1,0 +1,45 @@
+{
+  "id": "im_send_message_v1",
+  "name": "Send IM message to a teammate",
+  "product": "im",
+  "goal": "Search a contact in Feishu IM, send a text message, and confirm it appears.",
+  "expected": "Hello World",
+  "steps": [
+    {
+      "id": "open_search",
+      "action": "click",
+      "target": "top search bar",
+      "metadata": {
+        "x": 320,
+        "y": 88
+      }
+    },
+    {
+      "id": "input_contact",
+      "action": "type",
+      "target": "top search bar",
+      "value": "Test Group"
+    },
+    {
+      "id": "choose_chat",
+      "action": "click",
+      "target": "chat result",
+      "metadata": {
+        "x": 280,
+        "y": 180
+      }
+    },
+    {
+      "id": "input_message",
+      "action": "type",
+      "target": "message editor",
+      "value": "Hello World"
+    },
+    {
+      "id": "send_message",
+      "action": "hotkey",
+      "target": "message editor",
+      "value": "enter"
+    }
+  ]
+}

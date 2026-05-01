@@ -1,0 +1,23 @@
+[project]
+name = "cua-lark"
+version = "0.1.0"
+description = "Visual computer-use agent for Feishu desktop testing"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.7,<3.0",
+]
+
+[project.scripts]
+cua-lark = "cua_lark.cli:main"
+cua-lark-batch = "cua_lark.batch:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

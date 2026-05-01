@@ -1,0 +1,45 @@
+{
+  "id": "m1_real_open_calendar_tab_window_relative_v1",
+  "name": "Open Feishu Calendar tab using window-relative coordinates",
+  "product": "calendar",
+  "goal": "Click the Calendar tab in the current Feishu window.",
+  "expected": "日历",
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "click_calendar_tab",
+      "action": "click",
+      "target": "日历",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.034,
+        "y_ratio": 0.548
+      }
+    },
+    {
+      "id": "wait_after_click",
+      "action": "wait",
+      "target": "日历",
+      "value": "1"
+    },
+    {
+      "id": "dismiss_possible_modal",
+      "action": "hotkey",
+      "target": "active modal",
+      "value": "escape"
+    }
+  ]
+}

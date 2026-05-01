@@ -1,0 +1,15 @@
+{
+  "id": "m1_press_enter_v1",
+  "name": "Press Enter in the active Feishu field",
+  "product": "im",
+  "goal": "Submit the active Feishu field with Enter.",
+  "expected": "enter",
+  "steps": [
+    {
+      "id": "press_enter",
+      "action": "hotkey",
+      "target": "active field",
+      "value": "enter"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "m1_real_dismiss_install_modal_close_button_v1",
+  "name": "Dismiss Feishu install recommendation modal with close button",
+  "product": "cross_product",
+  "goal": "Close the current Feishu recommendation modal using the top-right close button.",
+  "expected": "close modal",
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "click_modal_close_button",
+      "action": "click",
+      "target": "modal close button",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.828,
+        "y_ratio": 0.101
+      }
+    }
+  ]
+}

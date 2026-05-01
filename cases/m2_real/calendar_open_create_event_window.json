@@ -1,0 +1,91 @@
+{
+  "id": "m2_real_calendar_open_create_event_window_v1",
+  "name": "Open the Feishu calendar create-event window",
+  "product": "calendar",
+  "goal": "Open the Calendar page in Feishu and launch the create-event window.",
+  "expected": "创建日程",
+  "verifications": [
+    {
+      "id": "calendar_create_window_title",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_title",
+        "contains": "创建日程"
+      }
+    },
+    {
+      "id": "calendar_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "click",
+      "target": "日历",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["日历"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "calendar",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["创建日程"],
+        "accessibility_hint": "top_right",
+        "recognition_first": true,
+        "x_ratio": 0.888,
+        "y_ratio": 0.040,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "post_accessibility_retries": 4,
+        "post_accessibility_delay_seconds": 0.5
+      }
+    },
+    {
+      "id": "wait_for_create_window",
+      "action": "wait",
+      "target": "create event window",
+      "value": "2"
+    }
+  ]
+}

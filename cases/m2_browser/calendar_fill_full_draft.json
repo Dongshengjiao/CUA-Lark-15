@@ -1,0 +1,224 @@
+{
+  "id": "m2_browser_calendar_fill_full_draft_v1",
+  "name": "Fill a fuller Feishu Web calendar draft with title, attendee input, and description",
+  "product": "calendar",
+  "goal": "Open Feishu Web, switch to Calendar, launch the create-event window, type a draft title, type a draft attendee value, and type a draft description without saving.",
+  "expected": "CUA-Lark M2 full draft",
+  "verifications": [
+    {
+      "id": "browser_url_calendar",
+      "provider": "observation",
+      "metadata": {
+        "field": "browser_url",
+        "contains": "feishu"
+      }
+    },
+    {
+      "id": "browser_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "open_feishu_web",
+      "action": "activate_app",
+      "target": "browser",
+      "metadata": {
+        "manual_login_wait_seconds": 90
+      }
+    },
+    {
+      "id": "wait_for_web_boot",
+      "action": "wait",
+      "target": "feishu web",
+      "value": "2"
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "activate_app",
+      "target": "日历",
+      "metadata": {
+        "candidate_urls": [
+          "/calendar/",
+          "/suite/calendar/",
+          "/calendar/home/"
+        ],
+        "expected_url_contains": [
+          "calendar"
+        ],
+        "expected_page_contains": [
+          "Calendar",
+          "创建日程",
+          "Create event"
+        ]
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., '创建日程')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), '创建日程')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., 'Create event')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), 'Create event')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[@aria-label='Create' or @aria-label='创建']"
+          }
+        ],
+        "x_ratio": 0.974,
+        "y_ratio": 0.955
+      }
+    },
+    {
+      "id": "wait_for_create_event_modal",
+      "action": "wait",
+      "target": "create event window",
+      "value": "4"
+    },
+    {
+      "id": "type_event_title",
+      "action": "type",
+      "target": "event title",
+      "value": "CUA-Lark M2 full draft",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Add title')]"
+          }
+        ],
+        "x_ratio": 0.520,
+        "y_ratio": 0.205
+      }
+    },
+    {
+      "id": "focus_attendee_input",
+      "action": "click",
+      "target": "attendee input",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, '联系人') or contains(@placeholder, '群') or contains(@placeholder, '邮箱')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(@placeholder, '添加联系人')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'attendee') or contains(@placeholder, 'Attendee') or contains(@placeholder, 'guest') or contains(@placeholder, 'Guest')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(@placeholder, 'Add people') or contains(@placeholder, 'Add guest')]"
+          }
+        ],
+        "x_ratio": 0.520,
+        "y_ratio": 0.285
+      }
+    },
+    {
+      "id": "wait_for_attendee_input",
+      "action": "wait",
+      "target": "attendee input",
+      "value": "1"
+    },
+    {
+      "id": "type_attendee_draft",
+      "action": "type",
+      "target": "attendee input",
+      "value": "demo attendee",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, '联系人') or contains(@placeholder, '群') or contains(@placeholder, '邮箱')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(@placeholder, '添加联系人')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'attendee') or contains(@placeholder, 'Attendee') or contains(@placeholder, 'guest') or contains(@placeholder, 'Guest')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(@placeholder, 'Add people') or contains(@placeholder, 'Add guest')]"
+          }
+        ],
+        "x_ratio": 0.520,
+        "y_ratio": 0.285
+      }
+    },
+    {
+      "id": "type_event_description",
+      "action": "type",
+      "target": "event description",
+      "value": "This fuller M2 calendar draft now covers title, attendee input, and description without saving.",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '描述')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Description')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[contains(@placeholder, 'Description')]"
+          }
+        ],
+        "x_ratio": 0.545,
+        "y_ratio": 0.365
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "im_click_search_bar_v1",
+  "name": "Focus Feishu IM search bar",
+  "product": "im",
+  "goal": "Activate Feishu and click the top search bar.",
+  "expected": "Feishu",
+  "steps": [
+    {
+      "id": "wait_before_start",
+      "action": "wait",
+      "target": "desktop",
+      "value": "1"
+    },
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "value": "Feishu"
+    },
+    {
+      "id": "wait_for_app",
+      "action": "wait",
+      "target": "Feishu",
+      "value": "2"
+    },
+    {
+      "id": "click_search_bar",
+      "action": "click",
+      "target": "top search bar",
+      "metadata": {
+        "x": 320,
+        "y": 88
+      }
+    }
+  ]
+}

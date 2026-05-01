@@ -1,0 +1,251 @@
+{
+  "id": "m2_browser_im_calendar_prepare_meeting_workflow_v1",
+  "name": "Prepare a meeting from IM into Calendar on Feishu Web",
+  "product": "cross_product",
+  "goal": "Open Feishu Web, draft a coordination message in Messages, switch to Calendar, and enter a meeting title and description draft.",
+  "expected": "周五产品会 - OPC 工作流联调",
+  "verifications": [
+    {
+      "id": "browser_url_calendar",
+      "provider": "observation",
+      "metadata": {
+        "field": "browser_url",
+        "contains": "feishu"
+      }
+    },
+    {
+      "id": "browser_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "open_feishu_web",
+      "action": "activate_app",
+      "target": "browser",
+      "metadata": {
+        "manual_login_wait_seconds": 90
+      }
+    },
+    {
+      "id": "wait_for_web_boot",
+      "action": "wait",
+      "target": "feishu web",
+      "value": "2"
+    },
+    {
+      "id": "open_messages_tab",
+      "action": "activate_app",
+      "target": "消息",
+      "metadata": {
+        "candidate_urls": [
+          "/messenger/",
+          "/messages/",
+          "/im/"
+        ],
+        "expected_url_contains": [
+          "messenger",
+          "messages",
+          "/im/"
+        ],
+        "expected_page_contains": [
+          "Messenger",
+          "消息",
+          "Chats"
+        ]
+      }
+    },
+    {
+      "id": "wait_for_messages_page",
+      "action": "wait",
+      "target": "messages page",
+      "value": "1"
+    },
+    {
+      "id": "select_default_chat",
+      "action": "click",
+      "target": "default chat row",
+      "metadata": {
+        "x_ratio": 0.309,
+        "y_ratio": 0.263
+      }
+    },
+    {
+      "id": "wait_for_chat_open",
+      "action": "wait",
+      "target": "chat open",
+      "value": "1"
+    },
+    {
+      "id": "focus_active_chat_input",
+      "action": "click",
+      "target": "chat input",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
+        ],
+        "x_ratio": 0.742,
+        "y_ratio": 0.949
+      }
+    },
+    {
+      "id": "clear_existing_draft",
+      "action": "hotkey",
+      "target": "chat input",
+      "value": "cmd+a"
+    },
+    {
+      "id": "type_coordination_message",
+      "action": "type",
+      "target": "chat input",
+      "value": "周五产品会先约起来，我接着去日历里补建会草稿。",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
+        ],
+        "x_ratio": 0.742,
+        "y_ratio": 0.949
+      }
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "activate_app",
+      "target": "日历",
+      "metadata": {
+        "candidate_urls": [
+          "/calendar/",
+          "/suite/calendar/",
+          "/calendar/home/"
+        ],
+        "expected_url_contains": [
+          "calendar"
+        ],
+        "expected_page_contains": [
+          "Calendar",
+          "创建日程",
+          "Create event"
+        ]
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., '创建日程')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), '创建日程')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., 'Create event')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), 'Create event')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[@aria-label='Create' or @aria-label='创建']"
+          }
+        ],
+        "x_ratio": 0.974,
+        "y_ratio": 0.955
+      }
+    },
+    {
+      "id": "wait_for_create_event_modal",
+      "action": "wait",
+      "target": "create event window",
+      "value": "4"
+    },
+    {
+      "id": "type_event_title",
+      "action": "type",
+      "target": "event title",
+      "value": "周五产品会 - OPC 工作流联调",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Add title')]"
+          }
+        ],
+        "x_ratio": 0.520,
+        "y_ratio": 0.205
+      }
+    },
+    {
+      "id": "type_event_description",
+      "action": "type",
+      "target": "event description",
+      "value": "本条跨产品工作流已从 IM 进入 Calendar，并完成会前建会草稿。",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '描述')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Description')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[contains(@placeholder, 'Description')]"
+          }
+        ],
+        "x_ratio": 0.545,
+        "y_ratio": 0.365
+      }
+    }
+  ]
+}

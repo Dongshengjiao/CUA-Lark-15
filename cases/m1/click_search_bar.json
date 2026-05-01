@@ -1,0 +1,18 @@
+{
+  "id": "m1_click_search_bar_v1",
+  "name": "Click the Feishu top search bar",
+  "product": "im",
+  "goal": "Click the top search bar in Feishu.",
+  "expected": "top search bar",
+  "steps": [
+    {
+      "id": "click_search_bar",
+      "action": "click",
+      "target": "top search bar",
+      "metadata": {
+        "x": 320,
+        "y": 88
+      }
+    }
+  ]
+}

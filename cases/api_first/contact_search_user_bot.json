@@ -1,0 +1,24 @@
+{
+  "id": "api_first_contact_search_user_bot_v1",
+  "name": "Search a Feishu user with lark-cli bot identity",
+  "product": "cross_product",
+  "goal": "Use Feishu CLI and bot identity to search a user and obtain an open_id for downstream IM or Calendar flows.",
+  "expected": "王泽",
+  "steps": [
+    {
+      "id": "search_user",
+      "action": "lark_cli",
+      "target": "contact +search-user",
+      "metadata": {
+        "command": [
+          "contact",
+          "+search-user",
+          "--query",
+          "王泽"
+        ],
+        "as_identity": "bot",
+        "expected_stdout_contains": "王泽"
+      }
+    }
+  ]
+}

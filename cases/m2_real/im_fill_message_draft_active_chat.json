@@ -1,0 +1,97 @@
+{
+  "id": "m2_real_im_fill_message_draft_active_chat_v1",
+  "name": "Fill a draft message in the active Feishu chat",
+  "product": "im",
+  "goal": "Open the Messages page, focus the active chat input box, clear the existing draft, and type a new draft message.",
+  "expected": "CUA-Lark IM M2 draft",
+  "verifications": [
+    {
+      "id": "im_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "im_front_window_title",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_title"
+      }
+    },
+    {
+      "id": "im_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "open_messages_tab",
+      "action": "click",
+      "target": "消息",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["消息"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "messages",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_messages_page",
+      "action": "wait",
+      "target": "messages page",
+      "value": "1"
+    },
+    {
+      "id": "focus_active_chat_input",
+      "action": "click",
+      "target": "active chat input",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.626,
+        "y_ratio": 0.948,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "clear_existing_draft",
+      "action": "hotkey",
+      "target": "chat input",
+      "metadata": {
+        "hotkey_alias": "select_all",
+        "skip_if_unconfigured": true
+      }
+    },
+    {
+      "id": "type_message_draft",
+      "action": "type",
+      "target": "chat input",
+      "value": "CUA-Lark IM M2 draft",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    }
+  ]
+}

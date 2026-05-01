@@ -1,0 +1,15 @@
+{
+  "id": "m1_activate_feishu_v1",
+  "name": "Activate Feishu desktop app",
+  "product": "im",
+  "goal": "Bring the Feishu desktop app to the foreground.",
+  "expected": "Feishu",
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "value": "Feishu"
+    }
+  ]
+}

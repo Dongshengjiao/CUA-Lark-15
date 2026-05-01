@@ -1,0 +1,204 @@
+{
+  "id": "m2_real_im_send_message_active_chat_v1",
+  "name": "Send a message in the active Feishu chat",
+  "product": "im",
+  "goal": "Open the Messages page, focus the active chat input box, replace the current draft, and send a message to the active conversation.",
+  "expected": "CUA-Lark IM M2 draft",
+  "verifications": [
+    {
+      "id": "im_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "im_not_create_event_window",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_title",
+        "not_contains": "创建日程"
+      }
+    },
+    {
+      "id": "im_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "dismiss_startup_overlay",
+      "action": "hotkey",
+      "target": "startup overlay",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      }
+    },
+    {
+      "id": "close_stale_create_window_if_needed",
+      "action": "hotkey",
+      "target": "create event window",
+      "metadata": {
+        "hotkey_alias": "close_window",
+        "only_if_front_window_title_contains": ["创建日程"],
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "confirm_discard_stale_create_window",
+      "action": "click",
+      "target": "退出",
+      "metadata": {
+        "only_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["退出"],
+        "recognition_first": true,
+        "require_accessibility_click": true,
+        "skip_if_accessibility_missing": true
+      },
+      "continue_on_failure": true
+    },
+    {
+      "id": "wait_after_startup_dismiss",
+      "action": "wait",
+      "target": "startup dismiss",
+      "value": "0.8"
+    },
+    {
+      "id": "open_messages_tab",
+      "action": "click",
+      "target": "消息",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["消息"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "messages",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reactivate_feishu_for_messages",
+            "action": "activate_app",
+            "target": "desktop",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+            }
+          },
+          {
+            "id": "wait_after_messages_refocus",
+            "action": "wait",
+            "target": "messages refocus",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_messages_page",
+      "action": "wait",
+      "target": "messages page",
+      "value": "1"
+    },
+    {
+      "id": "focus_active_chat_input",
+      "action": "click",
+      "target": "active chat input",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.626,
+        "y_ratio": 0.948,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reopen_messages_tab",
+            "action": "click",
+            "target": "消息",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+              "accessibility_labels": ["消息"],
+              "accessibility_hint": "product_rail",
+              "recognition_first": true,
+              "product_rail_target": "messages",
+              "require_accessibility_click": true
+            }
+          },
+          {
+            "id": "wait_after_messages_reopen",
+            "action": "wait",
+            "target": "messages reopen",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "clear_existing_draft",
+      "action": "hotkey",
+      "target": "chat input",
+      "metadata": {
+        "hotkey_alias": "select_all",
+        "skip_if_unconfigured": true
+      }
+    },
+    {
+      "id": "type_message_draft",
+      "action": "type",
+      "target": "chat input",
+      "value": "CUA-Lark IM M2 draft",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    },
+    {
+      "id": "dismiss_message_input_method_overlay",
+      "action": "hotkey",
+      "target": "message input method",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      },
+      "continue_on_failure": true
+    },
+    {
+      "id": "wait_after_typing",
+      "action": "wait",
+      "target": "message draft",
+      "value": "1"
+    },
+    {
+      "id": "click_send_button",
+      "action": "hotkey",
+      "target": "send message",
+      "value": "send_message",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "hotkey_alias": "send_message",
+        "confirmation_alias": "send_message"
+      }
+    }
+  ]
+}

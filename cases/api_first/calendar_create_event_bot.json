@@ -1,0 +1,32 @@
+{
+  "id": "api_first_calendar_create_event_bot_v1",
+  "name": "Create a calendar event with lark-cli bot identity",
+  "product": "calendar",
+  "goal": "Use Feishu CLI and bot identity to create a calendar event directly through OpenAPI.",
+  "expected": "CUA-Lark API Calendar Demo",
+  "steps": [
+    {
+      "id": "create_calendar_event",
+      "action": "lark_cli",
+      "target": "calendar +create",
+      "metadata": {
+        "command": [
+          "calendar",
+          "+create",
+          "--calendar-id",
+          "primary",
+          "--summary",
+          "CUA-Lark API Calendar Demo",
+          "--description",
+          "Created by CUA-Lark API-first workflow",
+          "--start",
+          "2026-04-26T14:00:00+08:00",
+          "--end",
+          "2026-04-26T14:30:00+08:00"
+        ],
+        "as_identity": "bot",
+        "expected_stdout_contains": "CUA-Lark API Calendar Demo"
+      }
+    }
+  ]
+}

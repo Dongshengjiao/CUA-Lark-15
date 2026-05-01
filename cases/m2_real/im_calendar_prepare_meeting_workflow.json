@@ -1,0 +1,327 @@
+{
+  "id": "m2_real_im_calendar_prepare_meeting_workflow_v1",
+  "name": "Prepare a meeting from IM into Calendar",
+  "product": "cross_product",
+  "goal": "Start from Messages, draft a coordination message, switch to Calendar, and open a meeting draft for follow-up scheduling.",
+  "expected": "周五产品会 - OPC 工作流联调",
+  "verifications": [
+    {
+      "id": "calendar_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "calendar_create_window_title",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_title",
+        "contains": "创建日程"
+      }
+    },
+    {
+      "id": "calendar_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_name": "Lark",
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "dismiss_startup_overlay",
+      "action": "hotkey",
+      "target": "startup overlay",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      }
+    },
+    {
+      "id": "close_stale_create_window_if_needed",
+      "action": "hotkey",
+      "target": "create event window",
+      "metadata": {
+        "hotkey_alias": "close_window",
+        "only_if_front_window_title_contains": ["创建日程"],
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "confirm_discard_stale_create_window",
+      "action": "click",
+      "target": "离开/退出",
+      "metadata": {
+        "only_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["离开", "退出"],
+        "recognition_first": true,
+        "require_accessibility_click": true,
+        "skip_if_accessibility_missing": true
+      },
+      "continue_on_failure": true
+    },
+    {
+      "id": "wait_after_startup_dismiss",
+      "action": "wait",
+      "target": "startup dismiss",
+      "value": "0.8"
+    },
+    {
+      "id": "open_messages_tab",
+      "action": "click",
+      "target": "消息",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["消息"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "messages",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reactivate_feishu_for_messages",
+            "action": "activate_app",
+            "target": "desktop",
+            "metadata": {
+              "app_name": "Lark",
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+            }
+          },
+          {
+            "id": "wait_after_messages_refocus",
+            "action": "wait",
+            "target": "messages refocus",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_messages_page",
+      "action": "wait",
+      "target": "messages page",
+      "value": "1"
+    },
+    {
+      "id": "focus_active_chat_input",
+      "action": "click",
+      "target": "active chat input",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "x_ratio": 0.626,
+        "y_ratio": 0.948,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "refocus_messages_page",
+            "action": "click",
+            "target": "消息",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+              "accessibility_labels": ["消息"],
+              "accessibility_hint": "product_rail",
+              "recognition_first": true,
+              "product_rail_target": "messages",
+              "require_accessibility_click": true
+            }
+          },
+          {
+            "id": "wait_after_messages_click",
+            "action": "wait",
+            "target": "messages tab retry",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "clear_existing_draft",
+      "action": "hotkey",
+      "target": "chat input",
+      "metadata": {
+        "hotkey_alias": "select_all",
+        "skip_if_unconfigured": true
+      }
+    },
+    {
+      "id": "type_coordination_message",
+      "action": "type",
+      "target": "chat input",
+      "value": "周五产品会先约起来，我接着去日历里补建会草稿。",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    },
+    {
+      "id": "dismiss_message_input_method_overlay",
+      "action": "hotkey",
+      "target": "message input method",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      },
+      "continue_on_failure": true
+    },
+    {
+      "id": "wait_after_typing_message",
+      "action": "wait",
+      "target": "coordination draft",
+      "value": "1"
+    },
+    {
+      "id": "open_calendar_tab",
+      "action": "click",
+      "target": "日历",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["日历"],
+        "accessibility_hint": "product_rail",
+        "recognition_first": true,
+        "product_rail_target": "calendar",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reactivate_feishu_for_calendar",
+            "action": "activate_app",
+            "target": "desktop",
+            "metadata": {
+              "app_name": "Lark",
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+            }
+          },
+          {
+            "id": "wait_after_calendar_refocus",
+            "action": "wait",
+            "target": "calendar refocus",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_calendar_page",
+      "action": "wait",
+      "target": "calendar page",
+      "value": "2"
+    },
+    {
+      "id": "open_create_event_window",
+      "action": "click",
+      "target": "创建日程",
+      "metadata": {
+        "skip_if_observation": {
+          "field": "front_window_title",
+          "contains": "创建日程"
+        },
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["创建日程"],
+        "accessibility_hint": "top_right",
+        "recognition_first": true,
+        "pre_accessibility_retries": 4,
+        "pre_accessibility_delay_seconds": 0.5,
+        "x_ratio": 0.888,
+        "y_ratio": 0.040,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4,
+        "fallback_steps": [
+          {
+            "id": "reopen_calendar_tab",
+            "action": "click",
+            "target": "日历",
+            "metadata": {
+              "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+              "accessibility_labels": ["日历"],
+              "accessibility_hint": "product_rail",
+              "recognition_first": true,
+              "product_rail_target": "calendar"
+            }
+          },
+          {
+            "id": "wait_after_calendar_reopen",
+            "action": "wait",
+            "target": "calendar reopen",
+            "value": "1"
+          }
+        ],
+        "retry_after_fallback": true
+      }
+    },
+    {
+      "id": "wait_for_create_window",
+      "action": "wait",
+      "target": "create event window",
+      "value": "2.5"
+    },
+    {
+      "id": "type_event_title",
+      "action": "type",
+      "target": "添加主题",
+      "value": "周五产品会 - OPC 工作流联调",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    },
+    {
+      "id": "open_description_editor",
+      "action": "click",
+      "target": "添加描述",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "accessibility_labels": ["添加描述"],
+        "recognition_first": true,
+        "pre_accessibility_retries": 4,
+        "pre_accessibility_delay_seconds": 0.5,
+        "x_ratio": 0.113,
+        "y_ratio": 0.776,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_description_editor",
+      "action": "wait",
+      "target": "description editor",
+      "value": "1"
+    },
+    {
+      "id": "type_event_description",
+      "action": "type",
+      "target": "description editor",
+      "value": "本条跨产品工作流已从 IM 进入 Calendar，并完成会前建会草稿。",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    }
+  ]
+}

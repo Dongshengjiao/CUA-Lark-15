@@ -55,6 +55,15 @@
     "bootstrap_user_data_dir": "~/Library/Application Support/Dia/User Data",
     "bootstrap_profile_directory": "Default",
     "implicit_wait_seconds": 3.0,
-    "page_load_timeout_seconds": 30.0
+    "page_load_timeout_seconds": 30.0,
+    "hotkeys": {
+      "select_all": "cmd+a",
+      "dismiss_modal": "escape",
+      "send_message": "return"
+    },
+    "confirmed_actions": {
+      "send_message": false,
+      "save_calendar_event": false
+    }
   }
 }

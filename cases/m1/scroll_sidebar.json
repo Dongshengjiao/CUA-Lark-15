@@ -1,0 +1,15 @@
+{
+  "id": "m1_scroll_sidebar_v1",
+  "name": "Scroll the Feishu sidebar",
+  "product": "im",
+  "goal": "Scroll the active Feishu sidebar area.",
+  "expected": "sidebar",
+  "steps": [
+    {
+      "id": "scroll_sidebar",
+      "action": "scroll",
+      "target": "sidebar",
+      "value": "-3"
+    }
+  ]
+}

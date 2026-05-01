@@ -1,0 +1,42 @@
+{
+  "id": "calendar_create_event_v1",
+  "name": "Create a calendar event",
+  "product": "calendar",
+  "goal": "Create a meeting for tomorrow at 2 PM and invite one participant.",
+  "expected": "Weekly Sync",
+  "verifications": [
+    {
+      "id": "calendar_agenda_check",
+      "provider": "lark_cli",
+      "command": [
+        "calendar",
+        "+agenda"
+      ],
+      "expected_contains": "Weekly Sync",
+      "optional": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "open_calendar",
+      "action": "click",
+      "target": "calendar navigation"
+    },
+    {
+      "id": "create_event",
+      "action": "click",
+      "target": "new event button"
+    },
+    {
+      "id": "input_title",
+      "action": "type",
+      "target": "event title",
+      "value": "Weekly Sync"
+    },
+    {
+      "id": "save_event",
+      "action": "click",
+      "target": "save button"
+    }
+  ]
+}

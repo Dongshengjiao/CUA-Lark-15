@@ -1,0 +1,144 @@
+{
+  "id": "m2_browser_im_send_message_active_chat_v1",
+  "name": "Draft and conditionally send a message in the active Feishu web chat",
+  "product": "im",
+  "goal": "Open Feishu Web, switch to Messages, focus the active chat input, draft a message, and trigger the send hotkey. The send step is gated by browser.confirmed_actions.send_message in settings.json so that real delivery is opt-in.",
+  "expected": "CUA-Lark IM M2 draft",
+  "verifications": [
+    {
+      "id": "browser_url_messages",
+      "provider": "observation",
+      "metadata": {
+        "field": "browser_url",
+        "contains": "feishu"
+      }
+    },
+    {
+      "id": "browser_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "open_feishu_web",
+      "action": "activate_app",
+      "target": "browser",
+      "metadata": {
+        "manual_login_wait_seconds": 90
+      }
+    },
+    {
+      "id": "wait_for_web_boot",
+      "action": "wait",
+      "target": "feishu web",
+      "value": "2"
+    },
+    {
+      "id": "open_messages_tab",
+      "action": "activate_app",
+      "target": "消息",
+      "metadata": {
+        "candidate_urls": [
+          "/messenger/",
+          "/messages/",
+          "/im/"
+        ],
+        "expected_url_contains": [
+          "messenger",
+          "messages",
+          "/im/"
+        ],
+        "expected_page_contains": [
+          "Messenger",
+          "消息",
+          "Chats"
+        ]
+      }
+    },
+    {
+      "id": "wait_for_messages_page",
+      "action": "wait",
+      "target": "messages page",
+      "value": "1"
+    },
+    {
+      "id": "select_default_chat",
+      "action": "click",
+      "target": "default chat row",
+      "metadata": {
+        "x_ratio": 0.309,
+        "y_ratio": 0.263
+      }
+    },
+    {
+      "id": "wait_for_chat_open",
+      "action": "wait",
+      "target": "chat open",
+      "value": "1"
+    },
+    {
+      "id": "focus_active_chat_input",
+      "action": "click",
+      "target": "chat input",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
+        ],
+        "x_ratio": 0.742,
+        "y_ratio": 0.949
+      }
+    },
+    {
+      "id": "clear_existing_draft",
+      "action": "hotkey",
+      "target": "chat input",
+      "value": "cmd+a"
+    },
+    {
+      "id": "type_message_draft",
+      "action": "type",
+      "target": "chat input",
+      "value": "CUA-Lark IM M2 draft",
+      "metadata": {
+        "selectors": [
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
+        ],
+        "x_ratio": 0.742,
+        "y_ratio": 0.949
+      }
+    },
+    {
+      "id": "wait_after_typing",
+      "action": "wait",
+      "target": "message draft",
+      "value": "1"
+    },
+    {
+      "id": "click_send_button",
+      "action": "hotkey",
+      "target": "send message",
+      "value": "send_message",
+      "metadata": {
+        "hotkey_alias": "send_message",
+        "confirmation_alias": "send_message"
+      }
+    }
+  ]
+}
