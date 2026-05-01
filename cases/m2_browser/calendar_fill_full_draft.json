@@ -19,6 +19,15 @@
       "metadata": {
         "field": "screenshot_path_exists"
       }
+    },
+    {
+      "id": "openapi_auth_status",
+      "provider": "lark_cli",
+      "command": ["auth", "status"],
+      "optional": true,
+      "metadata": {
+        "purpose": "Probe Feishu OpenAPI access. Optional: a green check signals API-backed verification is ready to layer on this chain; failure surfaces in the run report but does not block."
+      }
     }
   ],
   "steps": [
