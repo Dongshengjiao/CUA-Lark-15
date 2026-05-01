@@ -1,0 +1,26 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# IDE / Claude (real settings.json stays local; commit settings.example.json instead)
+.claude/settings.json
+.claude/settings.local.json
+
+# Browser profile — sensitive (Trust tokens, login state, leveldb), 778MB
+.cua/
+
+# Run artifacts — large, mutable, regenerable
+reports/runs/
+reports/latest/
+reports/screenshots/
+
+# Local secrets
+.env
+.env.local

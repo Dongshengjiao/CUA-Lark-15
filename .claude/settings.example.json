@@ -1,0 +1,60 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://ad-litellm.neolix.cn",
+    "ANTHROPIC_API_KEY": "YOUR_KEY_HERE",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "azure_ai/claude-opus-4-7",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  },
+  "model": "azure_ai/claude-opus-4-7",
+  "desktop": {
+    "hotkeys": {
+      "select_all": "cmd+a",
+      "close_window": "cmd+w",
+      "dismiss_modal": "escape",
+      "send_message": "return"
+    },
+    "confirmed_actions": {
+      "send_message": false,
+      "save_calendar_event": false
+    },
+    "step_overrides": {
+      "open_messages_tab": {
+        "x_offset": 0,
+        "y_offset": 0
+      },
+      "focus_active_chat_input": {
+        "x_offset": 0,
+        "y_offset": 0
+      },
+      "click_send_button": {
+        "x_offset": 0,
+        "y_offset": 0
+      },
+      "open_calendar_tab": {
+        "x_offset": 0,
+        "y_offset": 0
+      },
+      "open_create_event_window": {
+        "x_offset": 0,
+        "y_offset": 0
+      },
+      "open_description_editor": {
+        "x_offset": 0,
+        "y_offset": 0
+      }
+    }
+  },
+  "browser": {
+    "browser_name": "chrome",
+    "start_url": "https://jcneyh7qlo8i.feishu.cn/drive/home/",
+    "headless": false,
+    "binary_location": "/Applications/Dia.app/Contents/MacOS/Dia",
+    "user_data_dir": "~/Library/Application Support/Dia/User Data",
+    "profile_directory": "Default",
+    "persistent_user_data_dir": "/Users/niny/Documents/GitHub/CUA-Lark-15/.cua/browser-user-data/feishu-web",
+    "bootstrap_user_data_dir": "~/Library/Application Support/Dia/User Data",
+    "bootstrap_profile_directory": "Default",
+    "implicit_wait_seconds": 3.0,
+    "page_load_timeout_seconds": 30.0
+  }
+}
