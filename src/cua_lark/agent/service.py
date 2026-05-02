@@ -18,11 +18,15 @@ class AgentService:
         planner: Planner,
         executor: ActionExecutor,
         validator: Validator,
+        recovery_presets: dict[str, list[dict[str, object]]] | None = None,
     ) -> None:
         self.perception = perception
         self.planner = planner
         self.executor = executor
         self.validator = validator
+        self.recovery_presets: dict[str, list[dict[str, object]]] = (
+            dict(recovery_presets) if recovery_presets else {}
+        )
 
     def run_case(self, case: TestCase) -> RunResult:
         started_at = datetime.now(timezone.utc)
@@ -263,7 +267,7 @@ class AgentService:
             "signals": active_signals,
         }
         for signal in active_signals:
-            preset = self._HEAL_PRESETS.get(signal)
+            preset = self.recovery_presets.get(signal) or self._HEAL_PRESETS.get(signal)
             if not preset:
                 continue
             for index, item in enumerate(preset):

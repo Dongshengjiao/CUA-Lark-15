@@ -62,11 +62,17 @@ def _build_service(
     spec = PATH_SPECS[path_name]
     executor = _build_executor(spec["executor"], settings)
     perception = _build_perception(spec["perception"], artifacts_dir, settings)
+    presets = (
+        settings.browser.recovery_presets
+        if spec["executor"] == "browser"
+        else settings.desktop.recovery_presets
+    )
     return AgentService(
         perception=perception,
         planner=RuleBasedPlanner(),
         executor=executor,
         validator=CompositeValidator(),
+        recovery_presets=presets,
     )
 
 

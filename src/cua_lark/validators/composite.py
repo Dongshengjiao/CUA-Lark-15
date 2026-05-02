@@ -21,7 +21,7 @@ class CompositeValidator(Validator):
     def validate(self, case: TestCase, observation: Observation) -> ValidationResult:
         keyword_result = self.keyword_validator.validate(case, observation)
         details = list(keyword_result.details)
-        metadata = {"keyword": keyword_result.metadata}
+        metadata: dict[str, object] = {"keyword": keyword_result.metadata}
 
         if not case.verifications:
             return ValidationResult(

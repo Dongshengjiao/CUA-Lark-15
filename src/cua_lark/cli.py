@@ -6,12 +6,14 @@ from pathlib import Path
 
 from cua_lark.agent.service import AgentService
 from cua_lark.config import load_claude_settings
+from cua_lark.executors.base import ActionExecutor
 from cua_lark.executors.dry_run import DryRunExecutor
 from cua_lark.executors.lark_cli import LarkCliExecutor
 from cua_lark.executors.macos import MacOSExecutor
 from cua_lark.integrations.lark_cli import run_lark_cli_preflight
 from cua_lark.integrations.macos import run_macos_preflight
 from cua_lark.models import TestCase
+from cua_lark.perception.base import PerceptionAdapter
 from cua_lark.perception.macos import MacOSScreenCaptureAdapter
 from cua_lark.perception.mock import MockPerceptionAdapter
 from cua_lark.planners.rule_based import RuleBasedPlanner
@@ -71,16 +73,16 @@ def main() -> None:
 
     if args.doctor == "macos":
         artifacts_dir = ensure_artifacts_dir(args.artifacts_dir)
-        preflight = run_macos_preflight(artifacts_dir=artifacts_dir)
+        macos_preflight = run_macos_preflight(artifacts_dir=artifacts_dir)
         print(f"Using model: {settings.model or 'not configured'}")
         print("Doctor target: macos")
-        print(f"Ready: {preflight.ready}")
-        print(f"Summary: {preflight.summary}")
-        if preflight.details:
+        print(f"Ready: {macos_preflight.ready}")
+        print(f"Summary: {macos_preflight.summary}")
+        if macos_preflight.details:
             print("Details:")
-            for detail in preflight.details:
+            for detail in macos_preflight.details:
                 print(f"- {detail}")
-        raise SystemExit(0 if preflight.ready else 1)
+        raise SystemExit(0 if macos_preflight.ready else 1)
 
     if args.case is None:
         parser.error("the following arguments are required: case")
@@ -88,6 +90,7 @@ def main() -> None:
     case = load_case(args.case)
     artifacts_dir = ensure_artifacts_dir(args.artifacts_dir)
 
+    perception: PerceptionAdapter
     if args.perception == "macos":
         perception = MacOSScreenCaptureAdapter(artifacts_dir=artifacts_dir)
     elif args.perception == "browser":
@@ -97,6 +100,7 @@ def main() -> None:
     else:
         perception = MockPerceptionAdapter()
 
+    executor: ActionExecutor
     if args.executor == "macos":
         executor = MacOSExecutor(settings.desktop)
     elif args.executor == "browser":
@@ -108,11 +112,17 @@ def main() -> None:
     else:
         executor = DryRunExecutor()
 
+    presets = (
+        settings.browser.recovery_presets
+        if args.executor == "browser"
+        else settings.desktop.recovery_presets
+    )
     service = AgentService(
         perception=perception,
         planner=RuleBasedPlanner(),
         executor=executor,
         validator=CompositeValidator(),
+        recovery_presets=presets,
     )
     try:
         result = service.run_case(case)

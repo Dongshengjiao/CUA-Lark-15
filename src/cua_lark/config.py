@@ -51,6 +51,7 @@ class DesktopConfig(BaseModel):
         }
     )
     step_overrides: dict[str, DesktopStepOverride] = Field(default_factory=dict)
+    recovery_presets: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
 
 
 class BrowserStepOverride(BaseModel):
@@ -89,6 +90,7 @@ class BrowserConfig(BaseModel):
         }
     )
     step_overrides: dict[str, BrowserStepOverride] = Field(default_factory=dict)
+    recovery_presets: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
 
 
 def load_claude_settings(root: Path) -> ClaudeSettings:
