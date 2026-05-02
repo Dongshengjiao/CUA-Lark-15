@@ -785,13 +785,29 @@ def get_window_bounds(app_name: str) -> dict[str, int]:
 tell application "System Events"
     tell process "{app_name}"
         if (count of windows) is 0 then error "No windows for application"
-        set windowPosition to position of front window
-        set windowSize to size of front window
-        set xPos to item 1 of windowPosition
-        set yPos to item 2 of windowPosition
-        set winWidth to item 1 of windowSize
-        set winHeight to item 2 of windowSize
-        return (xPos as string) & "," & (yPos as string) & "," & (winWidth as string) & "," & (winHeight as string)
+        set bestArea to 0
+        set bestX to 0
+        set bestY to 0
+        set bestW to 0
+        set bestH to 0
+        repeat with w in windows
+            try
+                set winPosition to position of w
+                set winSize to size of w
+                set ww to item 1 of winSize
+                set hh to item 2 of winSize
+                set area to ww * hh
+                if area > bestArea then
+                    set bestArea to area
+                    set bestX to item 1 of winPosition
+                    set bestY to item 2 of winPosition
+                    set bestW to ww
+                    set bestH to hh
+                end if
+            end try
+        end repeat
+        if bestArea is 0 then error "No measurable windows for application"
+        return (bestX as string) & "," & (bestY as string) & "," & (bestW as string) & "," & (bestH as string)
     end tell
 end tell
 '''
