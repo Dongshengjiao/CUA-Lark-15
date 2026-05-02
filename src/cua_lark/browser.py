@@ -194,16 +194,42 @@ class BrowserSession:
         return self._is_feishu_login_url(current_url)
 
     def find_element(self, metadata: dict[str, Any], *, wait_seconds: float | None = None) -> WebElement:
-        spec = _resolve_selector_spec(metadata)
-        by = _to_by(spec.selector_type)
-        wait = WebDriverWait(self.driver, wait_seconds or self.config.implicit_wait_seconds)
-        return wait.until(EC.presence_of_element_located((by, spec.selector)))
+        return self._find_with_fallbacks(
+            metadata,
+            wait_seconds=wait_seconds,
+            condition=EC.presence_of_element_located,
+        )
 
     def find_clickable(self, metadata: dict[str, Any], *, wait_seconds: float | None = None) -> WebElement:
-        spec = _resolve_selector_spec(metadata)
-        by = _to_by(spec.selector_type)
-        wait = WebDriverWait(self.driver, wait_seconds or self.config.implicit_wait_seconds)
-        return wait.until(EC.element_to_be_clickable((by, spec.selector)))
+        return self._find_with_fallbacks(
+            metadata,
+            wait_seconds=wait_seconds,
+            condition=EC.element_to_be_clickable,
+        )
+
+    def _find_with_fallbacks(
+        self,
+        metadata: dict[str, Any],
+        *,
+        wait_seconds: float | None,
+        condition: Any,
+    ) -> WebElement:
+        specs = _resolve_selector_specs(metadata)
+        if not specs:
+            raise ValueError("browser action requires metadata.selector or metadata.selectors")
+        total_wait = wait_seconds if wait_seconds is not None else self.config.implicit_wait_seconds
+        per_spec = max(total_wait / max(len(specs), 1), 0.5)
+        last_error: Exception | None = None
+        for spec in specs:
+            by = _to_by(spec.selector_type)
+            try:
+                return WebDriverWait(self.driver, per_spec).until(condition((by, spec.selector)))
+            except Exception as exc:
+                last_error = exc
+                continue
+        raise RuntimeError(
+            f"none of the {len(specs)} browser selectors matched: {[s.selector for s in specs]}"
+        ) from last_error
 
     def click(self, metadata: dict[str, Any]) -> str:
         element = self.find_clickable(metadata)
@@ -249,9 +275,15 @@ return {
                 element.click()
             except Exception:
                 pass
-        if bool(metadata.get("clear_first", True)):
-            element.clear()
-        element.send_keys(value)
+        if bool(metadata.get("clear_first", True)) and _supports_clear(element):
+            try:
+                element.clear()
+            except Exception:
+                pass
+        if str(metadata.get("type_mode") or "").strip().lower() == "paste":
+            _paste_value(self.driver, value)
+        else:
+            element.send_keys(value)
         return value
 
     def type_via_active_element(self, metadata: dict[str, Any], value: str) -> str:
@@ -263,7 +295,10 @@ return {
                 active.clear()
             except Exception:
                 pass
-        active.send_keys(value)
+        if str(metadata.get("type_mode") or "").strip().lower() == "paste":
+            _paste_value(self.driver, value)
+        else:
+            active.send_keys(value)
         return value
 
     def send_hotkey(self, hotkey: str, metadata: dict[str, Any]) -> str:
@@ -481,6 +516,40 @@ def _ensure_cdp_page_target(
         pass
 
 
+def _supports_clear(element: WebElement) -> bool:
+    """Selenium .clear() only works on form inputs/textareas. For
+    contenteditable rich-text editors it raises, and the side effects of
+    that raise (mid-perform W3C action state) can desync the browser
+    such that the next keystroke chain misses focus. Skip clear for
+    anything that isn't a real form control."""
+    try:
+        tag = (element.tag_name or "").lower()
+    except Exception:
+        return True
+    if tag in ("input", "textarea"):
+        return True
+    return False
+
+
+def _paste_value(driver: WebDriver, value: str) -> None:
+    """Stage text in the macOS system pasteboard and synthesise a paste shortcut.
+
+    Selenium's send_keys path forwards keys through the OS, where any active
+    macOS IME (Pinyin, Wubi, ...) may consume non-ASCII characters. Going via
+    the pasteboard sidesteps that entirely.
+    """
+    import subprocess
+
+    subprocess.run(
+        ["pbcopy"], input=value.encode("utf-8"), check=True, timeout=5
+    )
+    actions = ActionChains(driver)
+    actions.key_down(Keys.COMMAND)
+    actions.send_keys("v")
+    actions.key_up(Keys.COMMAND)
+    actions.perform()
+
+
 def _ensure_persistent_chromium_user_data_dir(
     persistent_dir: Path,
     bootstrap_dir: Path | None,
@@ -627,7 +696,8 @@ def _clone_chromium_user_data_dir(source_dir: Path, profile_directory: str | Non
     return temp_root
 
 
-def _resolve_selector_spec(metadata: dict[str, Any]) -> BrowserElementSpec:
+def _resolve_selector_specs(metadata: dict[str, Any]) -> list[BrowserElementSpec]:
+    specs: list[BrowserElementSpec] = []
     raw_selectors = metadata.get("selectors")
     if isinstance(raw_selectors, list):
         for item in raw_selectors:
@@ -636,13 +706,19 @@ def _resolve_selector_spec(metadata: dict[str, Any]) -> BrowserElementSpec:
             selector = str(item.get("selector") or "").strip()
             selector_type = str(item.get("type") or item.get("selector_type") or "css").strip().lower()
             if selector:
-                return BrowserElementSpec(selector_type=selector_type, selector=selector)
-
+                specs.append(BrowserElementSpec(selector_type=selector_type, selector=selector))
     selector = str(metadata.get("selector") or "").strip()
     selector_type = str(metadata.get("selector_type") or "css").strip().lower()
-    if not selector:
+    if selector:
+        specs.append(BrowserElementSpec(selector_type=selector_type, selector=selector))
+    return specs
+
+
+def _resolve_selector_spec(metadata: dict[str, Any]) -> BrowserElementSpec:
+    specs = _resolve_selector_specs(metadata)
+    if not specs:
         raise ValueError("browser action requires metadata.selector or metadata.selectors")
-    return BrowserElementSpec(selector_type=selector_type, selector=selector)
+    return specs[0]
 
 
 def _to_by(selector_type: str) -> str:

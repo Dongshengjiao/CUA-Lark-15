@@ -23,7 +23,10 @@
     {
       "id": "openapi_auth_status",
       "provider": "lark_cli",
-      "command": ["auth", "status"],
+      "command": [
+        "auth",
+        "status"
+      ],
       "optional": true,
       "metadata": {
         "purpose": "Probe Feishu OpenAPI access. Optional: a green check signals API-backed verification is ready to layer on this chain; failure surfaces in the run report but does not block."
@@ -130,7 +133,8 @@
           }
         ],
         "x_ratio": 0.742,
-        "y_ratio": 0.949
+        "y_ratio": 0.949,
+        "type_mode": "paste"
       }
     },
     {
@@ -224,8 +228,9 @@
             "selector": "//input[contains(@placeholder, 'Add title')]"
           }
         ],
-        "x_ratio": 0.520,
-        "y_ratio": 0.205
+        "x_ratio": 0.52,
+        "y_ratio": 0.205,
+        "type_mode": "paste"
       }
     },
     {
@@ -241,19 +246,20 @@
           },
           {
             "type": "xpath",
-            "selector": "//div[@contenteditable='true']"
-          },
-          {
-            "type": "xpath",
             "selector": "//textarea[contains(@placeholder, 'Description')]"
           },
           {
             "type": "xpath",
             "selector": "//div[contains(@placeholder, 'Description')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
           }
         ],
         "x_ratio": 0.545,
-        "y_ratio": 0.365
+        "y_ratio": 0.365,
+        "type_mode": "paste"
       }
     }
   ]

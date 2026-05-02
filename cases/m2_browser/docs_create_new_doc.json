@@ -1,9 +1,9 @@
 {
   "id": "m2_browser_docs_create_new_doc_v1",
-  "name": "Create a new Feishu Web doc and type body content",
+  "name": "Create a new Feishu Web doc and type Chinese body content",
   "product": "docs",
-  "goal": "Open Feishu Web Docs (云文档), click New → Docs → New Docs template to spawn a new wiki doc tab, switch to it, and type body content. The new doc URL (/wiki/<token>) is the primary success signal; the title remains 'Untitled document' since wiki rename requires a different UI gesture.",
-  "expected": "CUA-Lark M2 Docs Demo",
+  "goal": "Open Feishu Web Docs (云文档), click New → Docs → New Docs template to spawn a new wiki doc tab, switch to it, and type Chinese body content via paste mode (clipboard + cmd+v) so macOS IME does not corrupt the input. The new doc URL (/wiki/<token>) is the primary success signal.",
+  "expected": "CUA-Lark M2 云文档自动化测试",
   "verifications": [
     {
       "id": "browser_url_docs",
@@ -161,13 +161,14 @@
       "id": "type_doc_content",
       "action": "type",
       "target": "doc body",
-      "value": "CUA-Lark M2 Docs Demo",
+      "value": "CUA-Lark M2 云文档自动化测试 — 这一行通过 pbcopy + cmd+v 写入,绕开了 macOS 输入法,Selenium 不再受 IME 干扰",
       "metadata": {
         "selectors": [
           {"type": "xpath", "selector": "//div[@contenteditable='true']"}
         ],
         "x_ratio": 0.5,
-        "y_ratio": 0.4
+        "y_ratio": 0.4,
+        "type_mode": "paste"
       }
     }
   ]

@@ -23,7 +23,10 @@
     {
       "id": "openapi_auth_status",
       "provider": "lark_cli",
-      "command": ["auth", "status"],
+      "command": [
+        "auth",
+        "status"
+      ],
       "optional": true,
       "metadata": {
         "purpose": "Probe Feishu OpenAPI access. Optional: a green check signals API-backed verification is ready to layer on this chain; failure surfaces in the run report but does not block."
@@ -55,8 +58,14 @@
           "/suite/calendar/",
           "/calendar/home/"
         ],
-        "expected_url_contains": ["calendar"],
-        "expected_page_contains": ["Calendar", "创建日程", "Create event"]
+        "expected_url_contains": [
+          "calendar"
+        ],
+        "expected_page_contains": [
+          "Calendar",
+          "创建日程",
+          "Create event"
+        ]
       }
     },
     {
@@ -71,11 +80,26 @@
       "target": "创建日程",
       "metadata": {
         "selectors": [
-          {"type": "xpath", "selector": "//button[contains(., '创建日程')]"},
-          {"type": "xpath", "selector": "//*[contains(text(), '创建日程')]/ancestor::button[1]"},
-          {"type": "xpath", "selector": "//button[contains(., 'Create event')]"},
-          {"type": "xpath", "selector": "//*[contains(text(), 'Create event')]/ancestor::button[1]"},
-          {"type": "xpath", "selector": "//button[@aria-label='Create' or @aria-label='创建']"}
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., '创建日程')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), '创建日程')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[contains(., 'Create event')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//*[contains(text(), 'Create event')]/ancestor::button[1]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//button[@aria-label='Create' or @aria-label='创建']"
+          }
         ],
         "x_ratio": 0.974,
         "y_ratio": 0.955
@@ -94,14 +118,30 @@
       "value": "周五产品会 - 通告版",
       "metadata": {
         "selectors": [
-          {"type": "xpath", "selector": "//input[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"},
-          {"type": "xpath", "selector": "//textarea[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"},
-          {"type": "xpath", "selector": "//input[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"},
-          {"type": "xpath", "selector": "//textarea[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"},
-          {"type": "xpath", "selector": "//input[contains(@placeholder, 'Add title')]"}
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '主题') or contains(@placeholder, '标题')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Title') or contains(@placeholder, 'Topic')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//input[contains(@placeholder, 'Add title')]"
+          }
         ],
-        "x_ratio": 0.520,
-        "y_ratio": 0.205
+        "x_ratio": 0.52,
+        "y_ratio": 0.205,
+        "type_mode": "paste"
       }
     },
     {
@@ -111,13 +151,26 @@
       "value": "本草稿用于回到 IM 通告团队会议时间,验证 Calendar→IM 跨产品方向。",
       "metadata": {
         "selectors": [
-          {"type": "xpath", "selector": "//textarea[contains(@placeholder, '描述')]"},
-          {"type": "xpath", "selector": "//div[@contenteditable='true']"},
-          {"type": "xpath", "selector": "//textarea[contains(@placeholder, 'Description')]"},
-          {"type": "xpath", "selector": "//div[contains(@placeholder, 'Description')]"}
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, '描述')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea[contains(@placeholder, 'Description')]"
+          },
+          {
+            "type": "xpath",
+            "selector": "//div[contains(@placeholder, 'Description')]"
+          }
         ],
         "x_ratio": 0.545,
-        "y_ratio": 0.365
+        "y_ratio": 0.365,
+        "type_mode": "paste"
       }
     },
     {
@@ -125,9 +178,21 @@
       "action": "activate_app",
       "target": "消息",
       "metadata": {
-        "candidate_urls": ["/messenger/", "/messages/", "/im/"],
-        "expected_url_contains": ["messenger", "messages", "/im/"],
-        "expected_page_contains": ["Messenger", "消息", "Chats"]
+        "candidate_urls": [
+          "/messenger/",
+          "/messages/",
+          "/im/"
+        ],
+        "expected_url_contains": [
+          "messenger",
+          "messages",
+          "/im/"
+        ],
+        "expected_page_contains": [
+          "Messenger",
+          "消息",
+          "Chats"
+        ]
       }
     },
     {
@@ -157,8 +222,14 @@
       "target": "chat input",
       "metadata": {
         "selectors": [
-          {"type": "xpath", "selector": "//div[@contenteditable='true']"},
-          {"type": "xpath", "selector": "//textarea"}
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
         ],
         "x_ratio": 0.742,
         "y_ratio": 0.949
@@ -177,11 +248,18 @@
       "value": "团队周五产品会已建草稿,请查阅日历同步参与。",
       "metadata": {
         "selectors": [
-          {"type": "xpath", "selector": "//div[@contenteditable='true']"},
-          {"type": "xpath", "selector": "//textarea"}
+          {
+            "type": "xpath",
+            "selector": "//div[@contenteditable='true']"
+          },
+          {
+            "type": "xpath",
+            "selector": "//textarea"
+          }
         ],
         "x_ratio": 0.742,
-        "y_ratio": 0.949
+        "y_ratio": 0.949,
+        "type_mode": "paste"
       }
     },
     {
