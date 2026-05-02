@@ -77,19 +77,23 @@
       "value": "2.5"
     },
     {
-      "id": "create_new_doc_via_shortcut",
-      "action": "hotkey",
-      "target": "new doc",
-      "value": "cmd+n",
+      "id": "click_new_doc_tile",
+      "action": "click",
+      "target": "新建文档 tile",
       "metadata": {
-        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "prefer_point_click": true,
+        "x_ratio": 0.047,
+        "y_ratio": 0.078,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
       }
     },
     {
       "id": "wait_for_doc_editor",
       "action": "wait",
       "target": "doc editor",
-      "value": "3"
+      "value": "5"
     },
     {
       "id": "focus_doc_title",
