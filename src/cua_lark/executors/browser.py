@@ -60,6 +60,12 @@ class BrowserExecutor(ActionExecutor):
         metadata = dict(step.metadata)
 
         if step.action == ActionType.ACTIVATE_APP:
+            if bool(metadata.get("switch_to_latest_tab")):
+                handles = list(self.session.driver.window_handles)
+                if not handles:
+                    raise RuntimeError("no browser windows to switch to")
+                self.session.driver.switch_to.window(handles[-1])
+                return f"switched to latest tab: {self.session.driver.current_url}"
             url = str(metadata.get("url") or self.browser_config.start_url or "").strip()
             manual_login_wait_seconds = float(
                 metadata.get("manual_login_wait_seconds", 0) or 0

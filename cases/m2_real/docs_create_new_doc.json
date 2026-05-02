@@ -1,0 +1,124 @@
+{
+  "id": "m2_real_docs_create_new_doc_v1",
+  "name": "Create a new Feishu doc and enter a title",
+  "product": "docs",
+  "goal": "Open Lark Docs (云文档), create a new document via the 新建 entry, and type a project status title.",
+  "expected": "CUA-Lark M2 Docs Demo",
+  "verifications": [
+    {
+      "id": "docs_front_window_app",
+      "provider": "observation",
+      "metadata": {
+        "field": "front_window_app"
+      }
+    },
+    {
+      "id": "docs_screenshot_written",
+      "provider": "observation",
+      "metadata": {
+        "field": "screenshot_path_exists"
+      }
+    },
+    {
+      "id": "openapi_auth_status",
+      "provider": "lark_cli",
+      "command": ["auth", "status"],
+      "optional": true,
+      "metadata": {
+        "purpose": "Probe Feishu OpenAPI access. Optional: a green check signals API-backed verification is ready to layer on this chain; failure surfaces in the run report but does not block."
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "focus_feishu",
+      "action": "activate_app",
+      "target": "desktop",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_focus",
+      "action": "wait",
+      "target": "飞书",
+      "value": "1"
+    },
+    {
+      "id": "dismiss_startup_overlay",
+      "action": "hotkey",
+      "target": "startup overlay",
+      "metadata": {
+        "hotkey_alias": "dismiss_modal"
+      }
+    },
+    {
+      "id": "wait_after_startup_dismiss",
+      "action": "wait",
+      "target": "startup dismiss",
+      "value": "0.8"
+    },
+    {
+      "id": "open_docs_tab",
+      "action": "click",
+      "target": "云文档",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "prefer_point_click": true,
+        "product_rail_target": "docs",
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_docs_page",
+      "action": "wait",
+      "target": "docs page",
+      "value": "2.5"
+    },
+    {
+      "id": "create_new_doc_via_shortcut",
+      "action": "hotkey",
+      "target": "new doc",
+      "value": "cmd+n",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"]
+      }
+    },
+    {
+      "id": "wait_for_doc_editor",
+      "action": "wait",
+      "target": "doc editor",
+      "value": "3"
+    },
+    {
+      "id": "focus_doc_title",
+      "action": "click",
+      "target": "doc title",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "prefer_point_click": true,
+        "x_ratio": 0.5,
+        "y_ratio": 0.18,
+        "resolve_retries": 3,
+        "resolve_delay_seconds": 0.4
+      }
+    },
+    {
+      "id": "wait_for_title_focus",
+      "action": "wait",
+      "target": "title focus",
+      "value": "0.6"
+    },
+    {
+      "id": "type_doc_title",
+      "action": "type",
+      "target": "doc title",
+      "value": "CUA-Lark M2 Docs Demo",
+      "metadata": {
+        "app_names": ["飞书", "Lark", "com.bytedance.macos.feishu"],
+        "type_mode": "paste"
+      }
+    }
+  ]
+}
