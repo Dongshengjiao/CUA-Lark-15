@@ -22,6 +22,26 @@ from cua_lark.macos import (
 from cua_lark.models import ActionResult, ActionType, StepDefinition
 
 
+def _to_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _to_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float, str)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
 class MacOSExecutor(ActionExecutor):
     def __init__(self, desktop_config: DesktopConfig | None = None) -> None:
         self.desktop_config = desktop_config or DesktopConfig()
@@ -152,14 +172,14 @@ class MacOSExecutor(ActionExecutor):
             return f"hotkey {resolved_hotkey}"
 
         if step.action == ActionType.SCROLL:
-            amount = int(metadata.get("amount", step.value or 0))
+            amount = _to_int(metadata.get("amount", step.value or 0))
             if amount == 0:
                 raise ValueError("scroll action requires a non-zero amount")
             scroll(amount)
             return f"scrolled {amount}"
 
         if step.action == ActionType.WAIT:
-            seconds = float(metadata.get("seconds", step.value or 1))
+            seconds = _to_float(metadata.get("seconds", step.value or 1), 1.0)
             time.sleep(seconds)
             return f"waited {seconds:.2f}s"
 
@@ -167,10 +187,10 @@ class MacOSExecutor(ActionExecutor):
             return "assert_text is a no-op in macOS executor"
 
         if step.action == ActionType.DRAG:
-            from_x = float(metadata["from_x"])
-            from_y = float(metadata["from_y"])
-            to_x = float(metadata["to_x"])
-            to_y = float(metadata["to_y"])
+            from_x = _to_float(metadata["from_x"])
+            from_y = _to_float(metadata["from_y"])
+            to_x = _to_float(metadata["to_x"])
+            to_y = _to_float(metadata["to_y"])
             drag(from_x, from_y, to_x, to_y)
             return f"dragged from ({from_x:.1f}, {from_y:.1f}) to ({to_x:.1f}, {to_y:.1f})"
 
@@ -257,8 +277,8 @@ def _assert_post_labels(metadata: dict[str, object]) -> None:
     if not normalized:
         return
 
-    retries = int(metadata.get("post_accessibility_retries", 1) or 1)
-    delay_seconds = float(metadata.get("post_accessibility_delay_seconds", 0.4) or 0.4)
+    retries = max(_to_int(metadata.get("post_accessibility_retries"), 1), 1)
+    delay_seconds = _to_float(metadata.get("post_accessibility_delay_seconds"), 0.4) or 0.4
 
     for attempt in range(max(retries, 1)):
         matched, _matched_label = element_exists_by_label_candidates(
@@ -291,8 +311,8 @@ def _assert_pre_labels(metadata: dict[str, object]) -> None:
     if not normalized:
         return
 
-    retries = int(metadata.get("pre_accessibility_retries", 1) or 1)
-    delay_seconds = float(metadata.get("pre_accessibility_delay_seconds", 0.4) or 0.4)
+    retries = max(_to_int(metadata.get("pre_accessibility_retries"), 1), 1)
+    delay_seconds = _to_float(metadata.get("pre_accessibility_delay_seconds"), 0.4) or 0.4
 
     for attempt in range(max(retries, 1)):
         matched, _matched_label = element_exists_by_label_candidates(
@@ -324,8 +344,8 @@ def _assert_context_labels(metadata: dict[str, object], key: str) -> None:
     if not normalized:
         return
 
-    retries = int(metadata.get("pre_accessibility_retries", 1) or 1)
-    delay_seconds = float(metadata.get("pre_accessibility_delay_seconds", 0.4) or 0.4)
+    retries = max(_to_int(metadata.get("pre_accessibility_retries"), 1), 1)
+    delay_seconds = _to_float(metadata.get("pre_accessibility_delay_seconds"), 0.4) or 0.4
 
     for attempt in range(max(retries, 1)):
         matched, _matched_label = element_exists_by_label_candidates(

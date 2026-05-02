@@ -958,31 +958,59 @@ def capture_screenshot(path: Path) -> Path:
     return path
 
 
+def _md_int(metadata: dict[str, object], key: str, default: int = 0) -> int:
+    value = metadata.get(key, default)
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _md_float(metadata: dict[str, object], key: str, default: float = 0.0) -> float:
+    value = metadata.get(key, default)
+    if isinstance(value, (int, float, str)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _resolve_candidates_bounds(
+    metadata: dict[str, object], default_app_name: str
+) -> dict[str, int]:
+    app_names = metadata.get("app_names")
+    if isinstance(app_names, list) and app_names:
+        candidates = [str(item) for item in app_names]
+    else:
+        candidates = [str(metadata.get("app_name") or default_app_name)]
+    retries = max(_md_int(metadata, "resolve_retries", 1), 1)
+    delay_seconds = _md_float(metadata, "resolve_delay_seconds", 0.25)
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            _, bounds = get_window_bounds_candidates(candidates)
+            return bounds
+        except Exception as exc:
+            last_error = exc
+            if attempt < retries - 1:
+                time.sleep(delay_seconds)
+    raise RuntimeError(
+        f"Failed to resolve window bounds for {candidates}: {last_error}"
+    ) from last_error
+
+
 def resolve_point(metadata: dict[str, object], default_app_name: str = "飞书") -> tuple[float, float]:
     if "x" in metadata and "y" in metadata:
-        return float(metadata["x"]), float(metadata["y"])
+        return _md_float(metadata, "x"), _md_float(metadata, "y")
 
     rail_target = str(metadata.get("product_rail_target") or "").strip().lower()
     if rail_target:
-        app_names = metadata.get("app_names")
-        if isinstance(app_names, list) and app_names:
-            candidates = [str(item) for item in app_names]
-        else:
-            candidates = [str(metadata.get("app_name") or default_app_name)]
-        retries = int(metadata.get("resolve_retries", 1))
-        delay_seconds = float(metadata.get("resolve_delay_seconds", 0.25))
-        last_error: Exception | None = None
-        for attempt in range(max(retries, 1)):
-            try:
-                _, bounds = get_window_bounds_candidates(candidates)
-                break
-            except Exception as exc:
-                last_error = exc
-                if attempt < max(retries, 1) - 1:
-                    time.sleep(delay_seconds)
-        else:
-            raise RuntimeError(f"Failed to resolve window bounds for {candidates}: {last_error}") from last_error
-
+        bounds = _resolve_candidates_bounds(metadata, default_app_name)
         rail_map = {
             "messages": (0.031, 0.243),
             "calendar": (0.031, 0.365),
@@ -994,36 +1022,19 @@ def resolve_point(metadata: dict[str, object], default_app_name: str = "飞书")
         if rail_target not in rail_map:
             raise ValueError(f"unsupported product_rail_target: {rail_target}")
         x_ratio, y_ratio = rail_map[rail_target]
-        x_offset = float(metadata.get("x_offset", 0) or 0)
-        y_offset = float(metadata.get("y_offset", 0) or 0)
+        x_offset = _md_float(metadata, "x_offset")
+        y_offset = _md_float(metadata, "y_offset")
         return (
             bounds["x"] + bounds["width"] * x_ratio + x_offset,
             bounds["y"] + bounds["height"] * y_ratio + y_offset,
         )
 
     if "x_ratio" in metadata and "y_ratio" in metadata:
-        app_names = metadata.get("app_names")
-        if isinstance(app_names, list) and app_names:
-            candidates = [str(item) for item in app_names]
-        else:
-            candidates = [str(metadata.get("app_name") or default_app_name)]
-        retries = int(metadata.get("resolve_retries", 1))
-        delay_seconds = float(metadata.get("resolve_delay_seconds", 0.25))
-        last_error: Exception | None = None
-        for attempt in range(max(retries, 1)):
-            try:
-                _, bounds = get_window_bounds_candidates(candidates)
-                break
-            except Exception as exc:
-                last_error = exc
-                if attempt < max(retries, 1) - 1:
-                    time.sleep(delay_seconds)
-        else:
-            raise RuntimeError(f"Failed to resolve window bounds for {candidates}: {last_error}") from last_error
-        x_ratio = float(metadata["x_ratio"])
-        y_ratio = float(metadata["y_ratio"])
-        x_offset = float(metadata.get("x_offset", 0) or 0)
-        y_offset = float(metadata.get("y_offset", 0) or 0)
+        bounds = _resolve_candidates_bounds(metadata, default_app_name)
+        x_ratio = _md_float(metadata, "x_ratio")
+        y_ratio = _md_float(metadata, "y_ratio")
+        x_offset = _md_float(metadata, "x_offset")
+        y_offset = _md_float(metadata, "y_offset")
         return (
             bounds["x"] + bounds["width"] * x_ratio + x_offset,
             bounds["y"] + bounds["height"] * y_ratio + y_offset,
