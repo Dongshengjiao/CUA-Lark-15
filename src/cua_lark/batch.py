@@ -80,14 +80,15 @@ def _render_benchmark(
     case_ids: list[str],
     path_names: list[str],
     matrix: dict[tuple[str, str], dict[str, Any]],
-    case_dir: Path,
+    case_dirs: list[Path],
     started_at: str,
     ended_at: str,
 ) -> str:
+    case_dir_label = ", ".join(f"`{d}`" for d in case_dirs) if case_dirs else "`-`"
     lines = [
         "# CUA-Lark Benchmark Report",
         "",
-        f"- Case directory: `{case_dir}`",
+        f"- Case sources: {case_dir_label}",
         f"- Paths: {', '.join(f'`{p}`' for p in path_names)}",
         f"- Started: `{started_at}`",
         f"- Ended: `{ended_at}`",
@@ -154,7 +155,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run a batch of CUA-Lark test cases, optionally through multiple executor paths"
     )
-    parser.add_argument("case_dir", type=Path, help="Directory containing json test cases")
+    parser.add_argument(
+        "case_dir",
+        type=Path,
+        nargs="+",
+        help="One or more directories (and/or .json file paths) containing test cases",
+    )
     parser.add_argument(
         "--executor",
         choices=list(PATH_SPECS.keys()),
@@ -185,9 +191,28 @@ def main() -> None:
     artifacts_dir = ensure_artifacts_dir(args.artifacts_dir)
     reporter = MarkdownReporter()
 
-    case_paths = sorted(args.case_dir.glob("*.json"))
+    case_paths: list[Path] = []
+    seen: set[Path] = set()
+    for source in args.case_dir:
+        # Each source may be a directory of JSON cases or a direct .json path —
+        # this lets users pin "run these specific files" alongside a folder.
+        if source.is_dir():
+            for found in sorted(source.glob("*.json")):
+                resolved = found.resolve()
+                if resolved not in seen:
+                    case_paths.append(found)
+                    seen.add(resolved)
+        elif source.suffix.lower() == ".json" and source.exists():
+            resolved = source.resolve()
+            if resolved not in seen:
+                case_paths.append(source)
+                seen.add(resolved)
+        else:
+            raise SystemExit(f"Not a directory or .json file: {source}")
     if not case_paths:
-        raise SystemExit(f"No json cases found under {args.case_dir}")
+        raise SystemExit(
+            f"No json cases found under {[str(p) for p in args.case_dir]}"
+        )
 
     started_at = datetime.now(timezone.utc).isoformat()
     matrix: dict[tuple[str, str], dict[str, Any]] = {}
@@ -244,13 +269,13 @@ def main() -> None:
 
     batch_dir = ensure_artifacts_dir(artifacts_dir / "batch")
     benchmark_md = _render_benchmark(
-        case_ids, path_names, matrix, args.case_dir, started_at, ended_at
+        case_ids, path_names, matrix, list(args.case_dir), started_at, ended_at
     )
     benchmark_md_path = batch_dir / "benchmark.md"
     benchmark_md_path.write_text(benchmark_md, encoding="utf-8")
 
     benchmark_payload = {
-        "case_dir": str(args.case_dir),
+        "case_dirs": [str(p) for p in args.case_dir],
         "paths": path_names,
         "started_at": started_at,
         "ended_at": ended_at,
