@@ -57,6 +57,8 @@
     "implicit_wait_seconds": 3.0,
     "page_load_timeout_seconds": 30.0,
     "debugger_address": null,
+    "remote_debugging_port": 9222,
+    "detach": true,
     "hotkeys": {
       "select_all": "cmd+a",
       "dismiss_modal": "escape",

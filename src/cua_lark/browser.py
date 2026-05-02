@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 from pathlib import Path
+import json
 import shutil
 import tempfile
 import time
+import urllib.request
 from typing import Any
 
 from selenium import webdriver
@@ -347,8 +349,17 @@ def _build_driver(config: BrowserConfig) -> tuple[WebDriver, Path | None]:
 
     options = ChromeOptions()
 
-    if config.debugger_address:
-        options.add_experimental_option("debuggerAddress", config.debugger_address.strip())
+    explicit_attach_address = (config.debugger_address or "").strip() or None
+    auto_attach_port = config.remote_debugging_port
+    auto_attach_address: str | None = None
+    if not explicit_attach_address and auto_attach_port:
+        if _cdp_alive("localhost", auto_attach_port):
+            _ensure_cdp_page_target("localhost", auto_attach_port)
+            auto_attach_address = f"localhost:{auto_attach_port}"
+
+    attach_address = explicit_attach_address or auto_attach_address
+    if attach_address:
+        options.add_experimental_option("debuggerAddress", attach_address)
         resolved = SeleniumManager().binary_paths(["--browser", "chrome"])
         driver_path = resolved.get("driver_path") or None
         service = ChromeService(executable_path=driver_path) if driver_path else ChromeService()
@@ -356,7 +367,7 @@ def _build_driver(config: BrowserConfig) -> tuple[WebDriver, Path | None]:
             driver = webdriver.Chrome(service=service, options=options)
         except Exception as exc:
             raise RuntimeError(
-                f"failed to attach to running Chromium at {config.debugger_address}: {exc}. "
+                f"failed to attach to running Chromium at {attach_address}: {exc}. "
                 f"Make sure the browser was launched with --remote-debugging-port. "
                 f"For Dia: scripts/run_dia_with_debug.sh"
             ) from exc
@@ -408,6 +419,10 @@ def _build_driver(config: BrowserConfig) -> tuple[WebDriver, Path | None]:
         options.add_argument(f"--user-data-dir={effective_user_data_dir}")
     if effective_profile_directory:
         options.add_argument(f"--profile-directory={effective_profile_directory}")
+    if config.remote_debugging_port:
+        options.add_argument(f"--remote-debugging-port={config.remote_debugging_port}")
+    if config.detach:
+        options.add_experimental_option("detach", True)
     binary_candidates: list[str | None] = []
     if config.binary_location:
         binary_candidates.append(str(Path(config.binary_location).expanduser()))
@@ -431,6 +446,39 @@ def _build_driver(config: BrowserConfig) -> tuple[WebDriver, Path | None]:
             last_error = exc
 
     raise RuntimeError(f"failed to launch browser session: {last_error}") from last_error
+
+
+def _cdp_alive(host: str, port: int, *, timeout_seconds: float = 1.0) -> bool:
+    try:
+        with urllib.request.urlopen(
+            f"http://{host}:{port}/json/version", timeout=timeout_seconds
+        ):
+            return True
+    except Exception:
+        return False
+
+
+def _ensure_cdp_page_target(
+    host: str, port: int, *, seed_url: str = "about:blank"
+) -> None:
+    try:
+        with urllib.request.urlopen(
+            f"http://{host}:{port}/json/list", timeout=2.0
+        ) as resp:
+            targets = json.load(resp)
+    except Exception:
+        return
+    if isinstance(targets, list) and any(
+        isinstance(item, dict) and item.get("type") == "page" for item in targets
+    ):
+        return
+    try:
+        request = urllib.request.Request(
+            f"http://{host}:{port}/json/new?{seed_url}", method="PUT"
+        )
+        urllib.request.urlopen(request, timeout=2.0)
+    except Exception:
+        pass
 
 
 def _ensure_persistent_chromium_user_data_dir(

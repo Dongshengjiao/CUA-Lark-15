@@ -18,8 +18,6 @@ class LarkCliValidator:
             )
 
         command = ["lark-cli", *verification.command]
-        if "--format" not in verification.command:
-            command.extend(["--format", "json"])
 
         result = subprocess.run(
             command,
@@ -30,7 +28,7 @@ class LarkCliValidator:
 
         stdout = result.stdout.strip()
         stderr = result.stderr.strip()
-        metadata = {
+        metadata: dict[str, object] = {
             "provider": verification.provider,
             "status": "ok" if result.returncode == 0 else "command_failed",
             "command": command,

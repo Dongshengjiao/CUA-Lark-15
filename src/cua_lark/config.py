@@ -73,6 +73,8 @@ class BrowserConfig(BaseModel):
     implicit_wait_seconds: float = 3.0
     page_load_timeout_seconds: float = 30.0
     debugger_address: str | None = None
+    remote_debugging_port: int | None = None
+    detach: bool = False
     hotkeys: dict[str, str] = Field(
         default_factory=lambda: {
             "select_all": "cmd+a",
