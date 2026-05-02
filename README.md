@@ -148,6 +148,14 @@ Batch M1 acceptance run:
 PYTHONPATH=src python3 -m cua_lark.batch cases/m1
 ```
 
+Batch across multiple folders / explicit files (M3+):
+
+```bash
+# any mix of dirs and *.json paths is fine — duplicates dedup on resolved path
+PYTHONPATH=src python3 -m cua_lark.batch cases/m1 cases/m2_browser cases/m2_real --paths macos browser
+PYTHONPATH=src python3 -m cua_lark.batch cases/m2_real/docs_create_new_doc.json --executor macos
+```
+
 ## Lark CLI Integration
 
 `lark-cli` is an official Feishu/Lark tool maintained by the `larksuite` team. In this project it is an auxiliary capability, not the primary execution path for the competition build.
@@ -193,6 +201,29 @@ Current M2 closeout:
 6. Markdown reports and batch summaries now surface final front-window state and screenshot evidence for easier demo review.
 7. Calendar M2 now also includes a safe attendee-draft template that expands form coverage without saving a real event.
 8. Calendar M2 now also includes a full-draft template that replays title + attendee input + description in one non-saving workflow.
+
+## M3–M5 progress (Wangze branch)
+
+1. **Docs product coverage** — both `m2_browser/docs_create_new_doc.json` (Web,
+   pasted Chinese body, wiki URL verified) and `m2_real/docs_create_new_doc.json`
+   (Desktop, point click on the 新建文档 recommendation tile + paste-mode title)
+   pass end-to-end. `cmd+n` is unreliable on Lark Desktop — use the tile click.
+2. **Paste-mode CJK input** — every type step on Chinese text uses
+   `metadata.type_mode: "paste"`, which routes through `pbcopy` + `cmd+v` so the
+   macOS IME can't corrupt the input. Browser executor mirrors the same path
+   via clipboard injection.
+3. **Self-healing presets** — `AgentService` ships built-in heals keyed by
+   observation signal (`stuck_create_event_modal`, `discard_dialog_visible`,
+   `feishu_login_required`, `browser_renderer_idle`). Cases opt in with
+   `metadata.auto_heal: true`.
+4. **User-defined `recovery_presets`** — `.claude/settings.json` →
+   `desktop.recovery_presets` (or `browser.recovery_presets`) overrides the
+   built-in map by signal name. The chosen slice is selected by the active
+   executor (browser vs desktop).
+5. **Largest-window resolver** — `macos.get_window_bounds` picks the largest
+   visible window of the candidate apps instead of `front window`, so transient
+   overlays (NotificationCenter widgets, OS modals) can't poison the click
+   target ratios.
 
 ## Status
 
