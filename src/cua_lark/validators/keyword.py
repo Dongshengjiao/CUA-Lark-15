@@ -13,6 +13,16 @@ class KeywordValidator(Validator):
                 details=["OCR check matched expected text"],
             )
 
+        for key, value in observation.metadata.items():
+            if not isinstance(value, str) or not value:
+                continue
+            if case.expected.lower() in value.lower():
+                return ValidationResult(
+                    success=True,
+                    message=f"Expected text found in observation metadata `{key}`",
+                    details=[f"observation.metadata.{key} contained the expected text"],
+                )
+
         for step in case.steps:
             if step.value and case.expected.lower() in step.value.lower():
                 return ValidationResult(

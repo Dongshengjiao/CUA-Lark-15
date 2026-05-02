@@ -112,7 +112,8 @@
         "x_ratio": 0.546,
         "y_ratio": 0.932,
         "resolve_retries": 3,
-        "resolve_delay_seconds": 0.4
+        "resolve_delay_seconds": 0.4,
+        "confirmation_alias": "save_calendar_event"
       }
     }
   ]

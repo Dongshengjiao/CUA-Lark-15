@@ -61,6 +61,11 @@ class MacOSExecutor(ActionExecutor):
         metadata = _resolved_metadata(step, self.desktop_config)
 
         if step.action == ActionType.CLICK:
+            confirmation_alias = str(metadata.get("confirmation_alias") or "").strip()
+            if confirmation_alias and not self.desktop_config.confirmed_actions.get(
+                confirmation_alias, False
+            ):
+                return f"click skipped until confirmation alias '{confirmation_alias}' is enabled"
             labels = metadata.get("accessibility_labels")
             if bool(metadata.get("prefer_point_click")):
                 _assert_pre_labels(metadata)
