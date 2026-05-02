@@ -346,6 +346,22 @@ def _build_driver(config: BrowserConfig) -> tuple[WebDriver, Path | None]:
         return webdriver.Firefox(options=firefox_options), None
 
     options = ChromeOptions()
+
+    if config.debugger_address:
+        options.add_experimental_option("debuggerAddress", config.debugger_address.strip())
+        resolved = SeleniumManager().binary_paths(["--browser", "chrome"])
+        driver_path = resolved.get("driver_path") or None
+        service = ChromeService(executable_path=driver_path) if driver_path else ChromeService()
+        try:
+            driver = webdriver.Chrome(service=service, options=options)
+        except Exception as exc:
+            raise RuntimeError(
+                f"failed to attach to running Chromium at {config.debugger_address}: {exc}. "
+                f"Make sure the browser was launched with --remote-debugging-port. "
+                f"For Dia: scripts/run_dia_with_debug.sh"
+            ) from exc
+        return driver, None
+
     if config.headless:
         options.add_argument("--headless=new")
     options.add_argument("--disable-dev-shm-usage")

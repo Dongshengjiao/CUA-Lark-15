@@ -72,6 +72,7 @@ class BrowserConfig(BaseModel):
     clone_user_data_dir: bool = True
     implicit_wait_seconds: float = 3.0
     page_load_timeout_seconds: float = 30.0
+    debugger_address: str | None = None
     hotkeys: dict[str, str] = Field(
         default_factory=lambda: {
             "select_all": "cmd+a",
