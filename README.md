@@ -225,6 +225,32 @@ Current M2 closeout:
    overlays (NotificationCenter widgets, OS modals) can't poison the click
    target ratios.
 
+## Closeout (Wangze handoff complete)
+
+What this branch delivered, end-to-end:
+
+- **M1 / M2 / M3** — five M1 single-step cases + 8 M2 browser cases +
+  10 M2 real (macOS) cases, including Docs (both browser and Desktop),
+  Calendar (incl. attendee-draft + full-draft templates), IM
+  (incl. cross-product calendar→IM workflow). All passing in `batch.py`.
+- **M5** — `_HEAL_PRESETS` for stuck_create_event_modal /
+  discard_dialog_visible / feishu_login_required / browser_renderer_idle;
+  case opt-in via `metadata.auto_heal: true`; user-defined
+  `recovery_presets` via `.claude/settings.json` with desktop / browser
+  slice. Mock-tested + verified incidentally during M3 docs runs (auto
+  heal triggered on a stuck 创建日程 modal during 2026-05-02 14:30 batch
+  and recovered).
+- **mypy clean** across all 28 source files.
+- **Multi-source batch** — `batch.py` accepts any mix of dirs and
+  individual `.json` paths.
+
+Out of scope (kept for follow-up if we get OpenAPI access):
+
+- `lark-cli` real-business verification (calendar / message / doc create
+  through Feishu OpenAPI). Requires a tenant + API key. The doctor probe
+  works (`--doctor lark-cli`); the actual create-and-verify chain is
+  scaffolded but never run with real credentials.
+
 ## Status
 
 This repository currently contains:
